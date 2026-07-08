@@ -14,6 +14,15 @@ if ! command -v claude >/dev/null 2>&1; then
     echo "Install/log in to Claude Code before using 'claudes launch|switch|usage|best'." >&2
 fi
 
+if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
+    if python3 -m pip --version >/dev/null 2>&1; then
+        echo "Installing dependencies from requirements.txt"
+        python3 -m pip install --user -r "$SCRIPT_DIR/requirements.txt"
+    else
+        echo "Warning: pip not available; skipping requirements.txt install." >&2
+    fi
+fi
+
 echo "Running installer: python3 $SCRIPT_DIR/claudes.py install"
 python3 "$SCRIPT_DIR/claudes.py" install
 

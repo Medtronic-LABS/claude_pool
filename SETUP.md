@@ -9,7 +9,7 @@ account's session/weekly usage so you can pick the least-used one.
 ## Prerequisites
 
 - macOS with `zsh` or `bash`
-- `python3` on PATH
+- `python3` (and `pip`) on PATH
 - The `claude` CLI installed, and already logged in once per account you plan to add
 
 ## Setup
@@ -18,7 +18,8 @@ account's session/weekly usage so you can pick the least-used one.
 ./setup.sh
 ```
 
-This runs `claudes.py install` to create `~/.claudes` (profiles dir +
+This installs any packages listed in `requirements.txt` (none yet — the
+tooling is stdlib-only today), then runs `claudes.py install` to create `~/.claudes` (profiles dir +
 `accounts.json`) and put a `claudes` command on PATH. If `/usr/local/bin`
 isn't writable (no sudo), the script automatically falls back to
 `~/bin/claudes` and adds it to PATH in your shell rc file — restart your

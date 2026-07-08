@@ -1,0 +1,4 @@
+# Python dependencies for claude_pool.
+# claudes.py / claude_pool.py currently only use the standard library —
+# this file is empty for now. Add pinned packages here as they're introduced,
+# and setup.sh will install them automatically.
