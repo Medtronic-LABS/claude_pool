@@ -51,6 +51,23 @@ there:
 CLAUDE_CONFIG_DIR=~/.claudes/profiles/<name> claude
 ```
 
+### Example
+
+Adding an account named `alice` after `./setup.sh` has already been run:
+
+```bash
+$ claudes add alice
+Added alice
+
+$ CLAUDE_CONFIG_DIR=~/.claudes/profiles/alice claude
+# complete the normal Claude Code login flow, then exit
+
+$ claudes list
+alice
+
+$ claudes launch alice
+```
+
 ## Commands
 
 | Command                  | Description                                              |
