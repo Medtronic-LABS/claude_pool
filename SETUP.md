@@ -43,13 +43,10 @@ claudes list
 claudes add <name>
 ```
 
-This creates `profiles/<name>/`. Then log into `claude` once with
-`CLAUDE_CONFIG_DIR` pointed at that profile so its credentials/session land
-there:
-
-```bash
-CLAUDE_CONFIG_DIR=~/.claudes/profiles/<name> claude
-```
+This creates `profiles/<name>/` and then automatically launches `claude`
+with `CLAUDE_CONFIG_DIR` pointed at that profile, so you can complete the
+login flow right away — its credentials/session land in that profile
+directory.
 
 ### Example
 
@@ -58,8 +55,7 @@ Adding an account named `alice` after `./setup.sh` has already been run:
 ```bash
 $ claudes add alice
 Added alice
-
-$ CLAUDE_CONFIG_DIR=~/.claudes/profiles/alice claude
+Launching claude to log in...
 # complete the normal Claude Code login flow, then exit
 
 $ claudes list

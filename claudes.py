@@ -60,6 +60,8 @@ def add(name):
     d["accounts"].append({"name":name,"config_path":str(p)})
     save(d)
     print("Added", name)
+    print("Launching claude to log in...")
+    launch(name)
 
 def list_accounts():
     d=load()

@@ -23,7 +23,7 @@ whichever account currently has the most headroom left.
 | Command                 | Description                                                    |
 |--------------------------|------------------------------------------------------------------|
 | `claudes install`        | Set up `~/.claudes` and put the `claudes` command on PATH        |
-| `claudes add <name>`     | Register a new account and create its profile directory          |
+| `claudes add <name>`     | Register a new account, create its profile directory, and launch `claude` to log in |
 | `claudes list`           | List configured accounts                                         |
 | `claudes launch <name>`  | Launch `claude` using that account's config (alias: `switch`)    |
 | `claudes usage`          | Show session/weekly usage % for every account                    |
