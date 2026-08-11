@@ -248,6 +248,18 @@ def launch(name):
     sys.stdout.flush()
     subprocess.run(["claude"], env=env)
 
+def _login(name):
+    """Run `claude auth login` directly under an account's config, so the
+    login flow starts immediately instead of requiring /login to be typed
+    inside an interactive session."""
+    a=find(name)
+    if not a:
+        print("Not found"); return
+    env=os.environ.copy()
+    env["CLAUDE_CONFIG_DIR"]=config_dir(a)
+    sys.stdout.flush()
+    subprocess.run(["claude","auth","login"], env=env)
+
 def get_usage(name):
     a=find(name)
     if not a: return {"session":0,"week":0,"active":False}
@@ -444,7 +456,7 @@ def _pick_best():
     kind,name=choice
     if kind=="use":
         return name
-    launch(name)
+    _login(name)
     return _pick_best()
 
 def best():

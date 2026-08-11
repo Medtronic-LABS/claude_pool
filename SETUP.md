@@ -107,12 +107,13 @@ Login required:
 
 Use ↑/↓ to move and Enter to choose — the selected account is boxed and
 highlighted (the recommended one starts pre-selected, so pressing Enter
-immediately accepts it). Accounts under
-"Login required" are shown but excluded from the usage comparison;
-choosing one launches `claude` so you can log back in, then everything is
-re-checked and the menu reappears (now including that account, if login
-succeeded). Press `q` to cancel without picking anything. `best` then
-prints the chosen name; `switch-best` launches `claude` with it. When
+immediately accepts it). Accounts under "Login required" are shown but
+excluded from the usage comparison; choosing one runs `claude auth login`
+directly — no need to launch a session and type `/login` yourself — then
+everything is re-checked and the menu reappears (now including that
+account, if login succeeded). Press `q` to cancel without picking
+anything. `best` then prints the chosen name; `switch-best` launches
+`claude` with it. When
 stdin isn't a terminal (cron jobs, scripts, pipes), the menu is skipped
 and the recommended account is used automatically.
 
