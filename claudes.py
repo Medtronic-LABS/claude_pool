@@ -232,6 +232,51 @@ def add(name):
     print("Added", name)
     _login(name)
 
+def remove(name, force=False):
+    a=find(name)
+    if not a:
+        print("Not found"); return
+    try:
+        cp=config_dir(a)
+    except KeyError:
+        cp=None
+    if cp and _has_active_sessions(cp):
+        print(f"{RED}Claude is currently running under '{name}'{RESET} — close it first."); return
+    if not force:
+        if not sys.stdin.isatty():
+            print(f"Refusing to remove '{name}' without confirmation (non-interactive) — pass --force."); return
+        if input(f"Remove account '{name}' and delete its profile? [y/N] ").strip().lower()!="y":
+            print("Cancelled"); return
+    d=load()
+    d["accounts"]=[x for x in d["accounts"] if x["name"]!=name]
+    save(d)
+    if CURRENT.exists() and CURRENT.read_text().strip()==name:
+        CURRENT.unlink()
+    if cp:
+        try:
+            resolved=Path(cp).resolve()
+            resolved.relative_to(PROFILES.resolve())
+        except ValueError:
+            print(f"{YELLOW}{cp} is outside profiles/ — not deleting; remove it manually if desired.{RESET}")
+        else:
+            if resolved.is_dir():
+                shutil.rmtree(str(resolved))
+    print("Removed", name)
+
+def rename(old, new):
+    d=load()
+    if not any(a["name"]==old for a in d["accounts"]):
+        print("Not found"); return
+    if any(a["name"]==new for a in d["accounts"]):
+        print("Already exists"); return
+    for a in d["accounts"]:
+        if a["name"]==old:
+            a["name"]=new
+    save(d)
+    if CURRENT.exists() and CURRENT.read_text().strip()==old:
+        CURRENT.write_text(new)
+    print("Renamed", old, "to", new)
+
 def list_accounts():
     d=load()
     for a in sorted(d["accounts"], key=lambda x:x["name"]):
@@ -656,6 +701,10 @@ if __name__=="__main__":
     cmd=sys.argv[1] if len(sys.argv)>1 else ""
     if cmd=="install": install()
     elif cmd=="add": add(sys.argv[2])
+    elif cmd=="remove" and len(sys.argv)>2: remove(sys.argv[2], force="--force" in sys.argv[3:])
+    elif cmd=="remove": print("Usage: claudes remove <name> [--force]")
+    elif cmd=="rename" and len(sys.argv)>3: rename(sys.argv[2], sys.argv[3])
+    elif cmd=="rename": print("Usage: claudes rename <old> <new>")
     elif cmd=="list": list_accounts()
     elif cmd=="usage": usage()
     elif cmd=="migrate": migrate()
@@ -665,7 +714,7 @@ if __name__=="__main__":
     elif find(cmd):
         launch(cmd)
     else:
-        print("Commands: install, add <name>, list, usage, migrate")
+        print("Commands: install, add <name>, remove <name> [--force], rename <old> <new>, list, usage, migrate")
         print("Run 'claudes' with no arguments to pick an account and launch it.")
         print("Run 'claudes <name>' to launch a specific account directly.")
         names=sorted(a["name"] for a in load()["accounts"])

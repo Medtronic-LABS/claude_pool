@@ -72,10 +72,28 @@ $ claudes alice
 arguments works too — with only one account it's the same thing, just
 after a quick usage check.)
 
+## Removing or renaming an account
+
+```bash
+claudes remove alice
+claudes rename alice bob
+```
+
+`remove` deletes both the `accounts.json` entry and the account's profile
+directory. It refuses if Claude is currently running under that account,
+and otherwise asks for confirmation — pass `--force` to skip the prompt
+(e.g. from a script). If the current account is removed, the next bare
+`claudes` re-checks everything from scratch.
+
+`rename` only changes the name used to refer to the account; the profile
+directory, credentials, and sessions are untouched.
+
 ## Commands
 
 | Command                  | Description                                              |
 |---------------------------|-----------------------------------------------------------|
+| `claudes remove <name>`    | Delete an account's entry and its profile directory (asks for confirmation unless `--force`) |
+| `claudes rename <old> <new>` | Rename an account in place — no profile directory or credentials are touched |
 | `claudes`                  | Check every account's session/usage live, then pick one to launch |
 | `claudes <name>`           | Launch that account directly — skips the usage check entirely |
 | `claudes list`             | List configured accounts                                  |
