@@ -23,8 +23,9 @@ This installs any packages listed in `requirements.txt` (none yet — the
 tooling is stdlib-only today), then runs `claudes.py install` to create `~/.claudes` (profiles dir +
 `accounts.json`) and put a `claudes` command on PATH. If `/usr/local/bin`
 isn't writable (no sudo), the script automatically falls back to
-`~/bin/claudes` and adds it to PATH in your shell rc file — restart your
-terminal (or `source` the rc file) afterwards.
+`~/bin/claudes` and adds it to PATH in your shell rc file — then, if run
+from a real terminal, relaunches your shell so `claudes` is ready to use
+right away, no manual restart needed.
 
 You can install manually instead, if you prefer:
 
@@ -208,5 +209,9 @@ export CLAUDES_BASE=/Users/amresh/labs/claude_pool
 
 **`claudes: command not found`** — `/usr/local/bin` usually requires sudo to
 write to. Re-run `./setup.sh`; it detects this and falls back to
-`~/bin/claudes` plus a PATH entry in your shell rc file automatically. Just
-make sure to restart your terminal (or `source` the rc file) afterwards.
+`~/bin/claudes` plus a PATH entry in your shell rc file automatically. When
+run from a real terminal, it then relaunches your shell (`exec "$SHELL"
+-li`) so `claudes` is ready to use immediately — no restart needed. If
+`setup.sh` was run non-interactively (piped stdin, CI, etc.), it instead
+prints `Restart your terminal (or run: source <rc file>)`; do that manually
+in that case.
