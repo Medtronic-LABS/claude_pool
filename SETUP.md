@@ -2,9 +2,10 @@
 
 `claude_pool` lets you juggle several Claude Code accounts on one machine. Each
 account gets its own isolated config directory under `profiles/<name>/`, listed
-in `accounts.json`. The `claudes` command launches `claude` with
-`CLAUDE_CONFIG_DIR` pointed at the right profile, and can report each
-account's session/weekly usage so you can pick the least-used one.
+in `accounts.json`. Running `claudes` with no arguments checks every account's
+session/weekly usage live and shows an arrow-key menu to pick which one to
+launch — it launches `claude` with `CLAUDE_CONFIG_DIR` pointed at the chosen
+profile.
 
 ## Prerequisites
 
@@ -43,10 +44,11 @@ claudes list
 claudes add <name>
 ```
 
-This creates `profiles/<name>/` and then automatically launches `claude`
-with `CLAUDE_CONFIG_DIR` pointed at that profile, so you can complete the
-login flow right away — its credentials/session land in that profile
-directory.
+This creates `profiles/<name>/` and then immediately runs `claude auth
+login` under that profile — the login link gets copied to your clipboard
+(see [Logging in](#logging-in) below) rather than opening a browser tab, so
+you can paste it into whichever browser you want. Its credentials/session
+land in that profile directory.
 
 ### Example
 
@@ -55,35 +57,33 @@ Adding an account named `alice` after `./setup.sh` has already been run:
 ```bash
 $ claudes add alice
 Added alice
-Launching claude to log in...
-# complete the normal Claude Code login flow, then exit
+Login link copied to clipboard — paste it into any browser to sign in:
+https://claude.ai/... (your actual login URL)
+# open that link in a browser, complete login
 
 $ claudes list
 alice
 
-$ claudes launch alice
+$ claudes
 ```
 
 ## Commands
 
 | Command                  | Description                                              |
 |---------------------------|-----------------------------------------------------------|
+| `claudes`                  | Check every account's session/usage live, then pick one to launch |
 | `claudes list`             | List configured accounts                                  |
-| `claudes launch <name>`    | Launch `claude` using that account's config (alias: `switch`) |
 | `claudes usage`            | Show session/weekly usage % for every account with an active session |
-| `claudes best`             | Recommend the least-used account among active sessions, interactively |
-| `claudes switch-best`      | Recommend the least-used account, then launch `claude` with it |
 | `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
-`usage`, `best`, and `switch-best` check each account for real by running
+`usage` and bare `claudes` check each account for real by running
 `claude -p /usage` under its config. Each account gets one line: the
 command flashes briefly while it runs, then is replaced in place by the
 result — so checking several accounts doesn't scroll the log, but you can
 still see what's actually being run. Claude Code sessions can expire and
 need a fresh login; a failed/non-zero result is treated as an expired
 session (not 0% usage) rather than silently making a logged-out account
-look like the best choice. `best`/`switch-best` then show an arrow-key
-menu, e.g.:
+look like the best choice. `claudes` then shows an arrow-key menu, e.g.:
 
 ```
 Checking account sessions and usage...
@@ -107,15 +107,35 @@ Login required:
 
 Use ↑/↓ to move and Enter to choose — the selected account is boxed and
 highlighted (the recommended one starts pre-selected, so pressing Enter
-immediately accepts it). Accounts under "Login required" are shown but
-excluded from the usage comparison; choosing one runs `claude auth login`
-directly — no need to launch a session and type `/login` yourself — then
-everything is re-checked and the menu reappears (now including that
-account, if login succeeded). Press `q` to cancel without picking
-anything. `best` then prints the chosen name; `switch-best` launches
-`claude` with it. When
-stdin isn't a terminal (cron jobs, scripts, pipes), the menu is skipped
-and the recommended account is used automatically.
+immediately accepts it), then `claudes` launches `claude` with the chosen
+account. Accounts under "Login required" are shown but excluded from the
+usage comparison; choosing one logs you in (see below) instead of
+launching a session, then everything is re-checked and the menu reappears
+(now including that account, if login succeeded). Press `q` to cancel
+without picking anything. When stdin isn't a terminal (cron jobs, scripts,
+pipes), the menu is skipped and the recommended account launches
+automatically.
+
+## Logging in
+
+Whenever `claude auth login` needs to run — from `claudes add <name>` for a
+brand-new account, or from picking a "Login required" entry in the
+menu — `claudes` runs it directly and streams its output live. As soon as
+the login URL appears, it's copied to your clipboard (via `pbcopy`) and
+printed, instead of letting a browser tab open automatically:
+
+```
+Login link copied to clipboard — paste it into any browser to sign in:
+https://claude.ai/oauth/authorize?...
+```
+
+Paste that link into whichever browser you want (useful if you're signed
+into different Google/Okta/etc. accounts in different browsers) and
+complete the login there; `claudes` keeps waiting and prints the result
+once it's done. Browser auto-open is suppressed on a best-effort basis
+only (`BROWSER=true` in the subprocess's environment) — if `claude` opens
+one directly regardless, the copied link is still there as the reliable
+fallback.
 
 ## Shared session context
 
@@ -129,10 +149,10 @@ project or session existed.
 symlinks into it. Every account reads and writes the same project
 history, shell history, plugin state, cache, and settings — so switching
 accounts to work around a usage limit doesn't cost you your context.
-`claudes launch`/`switch` also updates each project's "last session" in
-the account's `.claude.json` before launching, so resuming a project
+Launching an account via `claudes` also updates each project's "last
+session" in the account's `.claude.json` first, so resuming a project
 (`claude -c` / picking it from the project list) picks up the most recent
-session regardless of which account you resume it from.
+session regardless of which account you launched.
 
 New accounts get wired into the shared layer automatically —
 `claudes add <name>` calls this as part of creating the profile, so

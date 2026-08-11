@@ -229,8 +229,7 @@ def add(name):
     save(d)
     setup_shared_links(str(p))
     print("Added", name)
-    print("Launching claude to log in...")
-    launch(name)
+    _login(name)
 
 def list_accounts():
     d=load()
@@ -248,17 +247,41 @@ def launch(name):
     sys.stdout.flush()
     subprocess.run(["claude"], env=env)
 
+_LOGIN_URL_RE=re.compile(r"https?://\S+")
+
 def _login(name):
     """Run `claude auth login` directly under an account's config, so the
     login flow starts immediately instead of requiring /login to be typed
-    inside an interactive session."""
+    inside an interactive session. Streams the command's output live; when
+    the login URL appears, copy it to the clipboard (via pbcopy) instead of
+    letting a browser tab open automatically, so the user can paste it into
+    whichever browser they choose. Browser auto-open is only suppressed on
+    a best-effort basis (BROWSER=true) — claude may still open one directly;
+    the clipboard copy is the reliable part."""
     a=find(name)
     if not a:
         print("Not found"); return
     env=os.environ.copy()
     env["CLAUDE_CONFIG_DIR"]=config_dir(a)
+    env["BROWSER"]="true"
     sys.stdout.flush()
-    subprocess.run(["claude","auth","login"], env=env)
+    p=subprocess.Popen(["claude","auth","login"], env=env,
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    copied=False
+    for line in p.stdout:
+        m=_LOGIN_URL_RE.search(line)
+        if m and not copied:
+            url=m.group(0).rstrip(").,\"'")
+            try:
+                subprocess.run(["pbcopy"], input=url, text=True, check=True)
+                print(f"\n  {GREEN}Login link copied to clipboard{RESET} — paste it into any browser to sign in:")
+                print(f"  {url}\n")
+                copied=True
+                continue
+            except Exception:
+                pass
+        print(line, end="")
+    p.wait()
 
 def get_usage(name):
     a=find(name)
@@ -409,7 +432,7 @@ def _interactive_menu(rows, expired):
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
     return result
 
-def _pick_best():
+def _choose_account():
     """Check every account's session and usage live (printing the exact
     command run for each), then offer an arrow-key menu: active accounts
     under "Available" (best score first), expired ones under "Login
@@ -457,17 +480,7 @@ def _pick_best():
     if kind=="use":
         return name
     _login(name)
-    return _pick_best()
-
-def best():
-    acc=_pick_best()
-    if acc:
-        print(acc)
-
-def switch_best():
-    acc=_pick_best()
-    if acc:
-        launch(acc)
+    return _choose_account()
 
 def migrate():
     """Set up shared session layer and import all historical data."""
@@ -532,14 +545,16 @@ def migrate():
     print(f"Shared layer: {SHARED}")
 
 
-cmd=sys.argv[1] if len(sys.argv)>1 else ""
-if cmd=="install": install()
-elif cmd=="add": add(sys.argv[2])
-elif cmd=="list": list_accounts()
-elif cmd in ("launch", "switch"): launch(sys.argv[2])
-elif cmd=="usage": usage()
-elif cmd=="best": best()
-elif cmd=="switch-best": switch_best()
-elif cmd=="migrate": migrate()
-else:
-    print("Commands: install, add <name>, list, launch|switch <name>, usage, best, switch-best, migrate")
+if __name__=="__main__":
+    cmd=sys.argv[1] if len(sys.argv)>1 else ""
+    if cmd=="install": install()
+    elif cmd=="add": add(sys.argv[2])
+    elif cmd=="list": list_accounts()
+    elif cmd=="usage": usage()
+    elif cmd=="migrate": migrate()
+    elif cmd=="":
+        acc=_choose_account()
+        if acc: launch(acc)
+    else:
+        print("Commands: install, add <name>, list, usage, migrate")
+        print("Run 'claudes' with no arguments to pick an account and launch it.")
