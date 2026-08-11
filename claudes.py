@@ -9,7 +9,7 @@ ACCOUNTS = BASE / "accounts.json"
 CURRENT = BASE / "current_profile"
 SHARED = BASE / "shared"
 
-GREEN="\033[92m"; YELLOW="\033[93m"; RED="\033[91m"; RESET="\033[0m"
+GREEN="\033[92m"; YELLOW="\033[93m"; RED="\033[91m"; GRAY="\033[90m"; RESET="\033[0m"
 
 def ensure():
     BASE.mkdir(exist_ok=True)
@@ -250,20 +250,21 @@ def launch(name):
 
 def get_usage(name):
     a=find(name)
-    if not a: return None
+    if not a: return {"session":0,"week":0,"active":False}
     env=os.environ.copy()
     env["CLAUDE_CONFIG_DIR"]=config_dir(a)
+    cmd=["claude","-p","/usage"]
+    print(f"  {GRAY}$ CLAUDE_CONFIG_DIR={env['CLAUDE_CONFIG_DIR']} {' '.join(cmd)}{RESET}")
     try:
-        r=subprocess.run(["claude","-p","/usage"],capture_output=True,text=True,env=env,timeout=60)
+        r=subprocess.run(cmd,capture_output=True,text=True,env=env,timeout=60)
         out=r.stdout
         s=re.search(r"Current session:\s+(\d+)%", out)
         w=re.search(r"Current week.*?:\s+(\d+)%", out)
-        return {
-            "session": int(s.group(1)) if s else 0,
-            "week": int(w.group(1)) if w else 0
-        }
+        if r.returncode!=0 or not s or not w:
+            return {"session":0,"week":0,"active":False}
+        return {"session":int(s.group(1)),"week":int(w.group(1)),"active":True}
     except Exception:
-        return {"session":0,"week":0}
+        return {"session":0,"week":0,"active":False}
 
 def color(v):
     if v>=80: return RED
@@ -272,9 +273,12 @@ def color(v):
 
 def usage():
     d=load()
-    rows=[]
+    rows=[]; expired=[]
     for a in d["accounts"]:
         u=get_usage(a["name"])
+        if not u["active"]:
+            expired.append(a["name"])
+            continue
         score=u["session"]*0.7+u["week"]*0.3
         rows.append((a["name"],u["session"],u["week"],score))
     rows.sort(key=lambda x:x[3])
@@ -284,35 +288,49 @@ def usage():
     for n,s,w,sc in rows:
         c=color(s)
         print(f"{n:12} {c}{s:>3}%{RESET}       {c}{w:>3}%{RESET}      {sc:.1f}")
+    for n in expired:
+        print(f"{n:12} {RED}{'expired':>7}{RESET}    {RED}{'expired':>7}{RESET}    -")
     if rows:
         print(f"\nBest Account: {rows[0][0]}")
+    elif expired:
+        print("\nAll accounts have expired sessions — run 'claudes launch <name>' to log back in.")
 
 def _pick_best():
-    """Show a live usage log for every account, recommend the lowest-scoring
-    one, and let the user accept it or pick another. Returns the chosen name."""
+    """Check every account's session and usage live (printing the exact
+    command run for each), recommend the lowest-scoring account among those
+    with an active session, and let the user accept it or pick another.
+    Accounts with an expired/broken session are shown but excluded from
+    selection. Returns the chosen name."""
     d=load()
     accounts=d["accounts"]
     if not accounts:
         print("No accounts")
         return None
 
-    print("Checking account usage...\n")
+    print("Checking account sessions and usage...\n")
     rows=[]
-    best_idx=None; best_score=None
+    expired=[]
     for a in accounts:
         u=get_usage(a["name"])
+        if not u["active"]:
+            print(f"  {RED}{a['name']:12} session expired — run 'claudes launch {a['name']}' to log in{RESET}\n")
+            expired.append(a["name"])
+            continue
         sc=u["session"]*0.7+u["week"]*0.3
         rows.append((a["name"],u,sc))
-        if best_score is None or sc<best_score:
-            best_score=sc; best_idx=len(rows)-1
-
-    for i,(name,u,sc) in enumerate(rows):
         c=color(u["session"])
-        tag="  <- recommended" if i==best_idx else ""
-        print(f"  {i+1}. {name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}{tag}")
+        print(f"  {len(rows)}. {a['name']:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}\n")
 
-    best_name=rows[best_idx][0]
-    print(f"\nRecommended: {best_name} — lowest score {best_score:.1f} (70% session + 30% weekly usage)")
+    if not rows:
+        msg="No accounts with an active session."
+        if expired:
+            msg+=f" Expired: {', '.join(expired)} — log in with 'claudes launch <name>'."
+        print(msg)
+        return None
+
+    best_idx=min(range(len(rows)), key=lambda i: rows[i][2])
+    best_name,_,best_score=rows[best_idx]
+    print(f"Recommended: {best_name} — lowest score {best_score:.1f} among active sessions (70% session + 30% weekly usage)")
 
     if not sys.stdin.isatty():
         return best_name

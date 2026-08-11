@@ -70,30 +70,39 @@ $ claudes launch alice
 |---------------------------|-----------------------------------------------------------|
 | `claudes list`             | List configured accounts                                  |
 | `claudes launch <name>`    | Launch `claude` using that account's config (alias: `switch`) |
-| `claudes usage`            | Show session/weekly usage % for every account              |
-| `claudes best`             | Recommend the least-used account, interactively             |
+| `claudes usage`            | Show session/weekly usage % for every account with an active session |
+| `claudes best`             | Recommend the least-used account among active sessions, interactively |
 | `claudes switch-best`      | Recommend the least-used account, then launch `claude` with it |
 | `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
-`best` and `switch-best` check every account's usage live and print a
-numbered list (session %, weekly %, weighted score) with the
-lowest-scoring account marked `<- recommended`, e.g.:
+`usage`, `best`, and `switch-best` check each account for real by running
+`claude -p /usage` under its config — the exact command is printed as it
+runs, so you can see what's actually being checked. Claude Code sessions
+can expire and need a fresh login; a failed/non-zero result is treated as
+an expired session (not 0% usage), shown in the log, and excluded from
+`best`/`switch-best`'s selection — you'd otherwise risk being "recommended"
+an account that's actually logged out. `best`/`switch-best` then print a
+numbered list of accounts with an active session and prompt, e.g.:
 
 ```
-Checking account usage...
+Checking account sessions and usage...
 
-  1. alice        session  12%  week   5%  score   9.9  <- recommended
-  2. bob          session  45%  week  20%  score  37.5
+  $ CLAUDE_CONFIG_DIR=/Users/you/.claudes/profiles/alice claude -p /usage
+  1. alice        session  12%  week   5%  score   9.9
 
-Recommended: alice — lowest score 9.9 (70% session + 30% weekly usage)
-Use alice? [Enter to accept, or enter a number 1-2]:
+  $ CLAUDE_CONFIG_DIR=/Users/you/.claudes/profiles/carol claude -p /usage
+  carol        session expired — run 'claudes launch carol' to log in
+
+Recommended: alice — lowest score 9.9 among active sessions (70% session + 30% weekly usage)
+Use alice? [Enter to accept, or enter a number 1-1]:
 ```
 
 Press Enter to go with the recommendation, or type a number to pick a
 different account instead. `best` then prints the chosen name;
-`switch-best` launches `claude` with it. When stdin isn't a terminal
-(cron jobs, scripts, pipes), the prompt is skipped and the recommended
-account is used automatically.
+`switch-best` launches `claude` with it. If every account has expired,
+log back into one with `claudes launch <name>` and try again. When stdin
+isn't a terminal (cron jobs, scripts, pipes), the prompt is skipped and
+the recommended account is used automatically.
 
 ## Shared session context
 

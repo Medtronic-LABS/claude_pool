@@ -32,16 +32,22 @@ whichever account currently has the most headroom left.
 | `claudes add <name>`     | Register a new account, create its profile directory, and launch `claude` to log in |
 | `claudes list`           | List configured accounts                                         |
 | `claudes launch <name>`  | Launch `claude` using that account's config (alias: `switch`)    |
-| `claudes usage`          | Show session/weekly usage % for every account                    |
-| `claudes best`           | Recommend the least-used account, interactively                  |
+| `claudes usage`          | Show session/weekly usage % for every account with an active session |
+| `claudes best`           | Recommend the least-used account among active sessions, interactively |
 | `claudes switch-best`    | Recommend the least-used account, then launch `claude` with it   |
 | `claudes migrate`        | Link existing accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
-`best`/`switch-best` show a live usage log for every account (session %,
-weekly %, weighted score) with the recommended one marked, then prompt —
-press Enter to accept the recommendation or type a number to pick a
-different account. When stdin isn't a terminal (cron, scripts, pipes),
-they skip the prompt and use the recommendation automatically.
+`usage`, `best`, and `switch-best` check each account by actually running
+`claude -p /usage` under that account's config — printing the exact
+command as it runs — and treat a failed/non-zero result as an expired
+session rather than 0% usage (Claude Code sessions can expire and need a
+fresh login). `best`/`switch-best` then recommend the lowest-scoring
+account *among those with an active session* and prompt — press Enter to
+accept the recommendation or type a number to pick a different one.
+Expired accounts are shown in the log but excluded from selection; log
+back into one with `claudes launch <name>`. When stdin isn't a terminal
+(cron, scripts, pipes), the prompt is skipped and the recommendation is
+used automatically.
 
 ## Quick start
 
