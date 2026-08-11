@@ -92,29 +92,26 @@ Checking account sessions and usage...
 
 Recommended: alice — lowest score 9.9 among active sessions (70% session + 30% weekly usage)
 
-Select an account (↑/↓ move, Enter choose, q cancel):
+Select an account (↑/↓ move, ←/→ switch, Enter choose, q cancel):
 
-Available:
-┌───────────────────────────────────────────┐
-│ alice        session  12%  week   5%  score   9.9 │  <- selected: bordered + highlighted
-└───────────────────────────────────────────┘
-
-Login required:
-┌───────────────────────────────────────────┐
-│ carol        (Enter to log in)             │
-└───────────────────────────────────────────┘
+Available:                 Login required:
+┌─────────────────────┐    ┌─────────────────────┐
+│ alice  12%  5%  9.9  │    │ carol (Enter to log in) │  <- selected: bordered + highlighted
+└─────────────────────┘    └─────────────────────┘
 ```
 
-Use ↑/↓ to move and Enter to choose — the selected account is boxed and
-highlighted (the recommended one starts pre-selected, so pressing Enter
-immediately accepts it), then `claudes` launches `claude` with the chosen
-account. Accounts under "Login required" are shown but excluded from the
-usage comparison; choosing one logs you in (see below) instead of
-launching a session, then everything is re-checked and the menu reappears
-(now including that account, if login succeeded). Press `q` to cancel
-without picking anything. When stdin isn't a terminal (cron jobs, scripts,
-pipes), the menu is skipped and the recommended account launches
-automatically.
+"Available" and "Login required" render side by side when both have
+entries (otherwise whichever one exists renders alone, without the
+←/→ hint). Use ↑/↓ to move within a column and ←/→ to switch columns; the
+selected account is boxed and highlighted (the recommended one starts
+pre-selected, so pressing Enter immediately accepts it), then `claudes`
+launches `claude` with the chosen account. Accounts under "Login
+required" are excluded from the usage comparison; choosing one logs you
+in (see below) instead of launching a session, then everything is
+re-checked and the menu reappears (now including that account, if login
+succeeded). Press `q` to cancel without picking anything. When stdin
+isn't a terminal (cron jobs, scripts, pipes), the menu is skipped and the
+recommended account launches automatically.
 
 ## Logging in
 
@@ -136,6 +133,10 @@ once it's done. Browser auto-open is suppressed on a best-effort basis
 only (`BROWSER=true` in the subprocess's environment) — if `claude` opens
 one directly regardless, the copied link is still there as the reliable
 fallback.
+
+Changed your mind, or picked the wrong account? Press **Esc twice** while
+it's waiting to cancel the login and go straight back to the account
+menu — no need to wait it out or Ctrl-C the whole `claudes` process.
 
 ## Shared session context
 

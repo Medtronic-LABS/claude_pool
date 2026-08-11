@@ -40,15 +40,16 @@ Running bare `claudes` checks each account by actually running
 it runs, then is replaced in place by the result, so checking several
 accounts stays a compact one-line-each log — and treats a failed/non-zero
 result as an expired session rather than 0% usage (Claude Code sessions can
-expire and need a fresh login). It then shows an arrow-key menu (↑/↓ to
-move, Enter to choose, q to cancel) with active accounts under "Available"
-— best score first, pre-selected — and expired ones under "Login required".
-Picking a login-required account runs `claude auth login` directly and
-copies the login link to your clipboard instead of opening a browser tab,
-so you can paste it into whichever browser you want; everything is then
-re-checked and the menu shown again. When stdin isn't a terminal (cron,
-scripts, pipes), the menu is skipped and the recommended account launches
-automatically.
+expire and need a fresh login). It then shows an arrow-key menu (↑/↓ move,
+←/→ switch column, Enter choose, q cancel) with active accounts under
+"Available" and expired ones under "Login required" — side by side when
+both exist, best score pre-selected. Picking a login-required account
+runs `claude auth login` directly and copies the login link to your
+clipboard instead of opening a browser tab, so you can paste it into
+whichever browser you want (press Esc twice while it's waiting to cancel
+and pick a different account); everything is then re-checked and the menu
+shown again. When stdin isn't a terminal (cron, scripts, pipes), the menu
+is skipped and the recommended account launches automatically.
 
 ## Quick start
 

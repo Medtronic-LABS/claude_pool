@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, os, re, shutil, stat, subprocess, sys
+import json, os, re, select, shutil, stat, subprocess, sys, time
 from pathlib import Path
 
 HOME = Path.home()
@@ -257,7 +257,8 @@ def _login(name):
     letting a browser tab open automatically, so the user can paste it into
     whichever browser they choose. Browser auto-open is only suppressed on
     a best-effort basis (BROWSER=true) — claude may still open one directly;
-    the clipboard copy is the reliable part."""
+    the clipboard copy is the reliable part. While waiting, pressing Esc
+    twice cancels the login and returns control to the caller."""
     a=find(name)
     if not a:
         print("Not found"); return
@@ -267,21 +268,73 @@ def _login(name):
     sys.stdout.flush()
     p=subprocess.Popen(["claude","auth","login"], env=env,
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+    can_cancel=sys.stdin.isatty()
     copied=False
-    for line in p.stdout:
+
+    def handle_line(line):
+        nonlocal copied
         m=_LOGIN_URL_RE.search(line)
         if m and not copied:
             url=m.group(0).rstrip(").,\"'")
             try:
                 subprocess.run(["pbcopy"], input=url, text=True, check=True)
                 print(f"\n  {GREEN}Login link copied to clipboard{RESET} — paste it into any browser to sign in:")
-                print(f"  {url}\n")
+                print(f"  {url}")
+                if can_cancel:
+                    print("  (press Esc twice to cancel and pick a different account)")
+                print()
                 copied=True
-                continue
+                return
             except Exception:
                 pass
         print(line, end="")
-    p.wait()
+
+    old=None; fd=None
+    if can_cancel:
+        try:
+            import termios, tty
+            fd=sys.stdin.fileno()
+            old=termios.tcgetattr(fd)
+            tty.setcbreak(fd)
+        except Exception:
+            can_cancel=False
+
+    cancelled=False
+    last_esc=0.0
+    try:
+        while True:
+            if p.poll() is not None:
+                for line in p.stdout:
+                    handle_line(line)
+                break
+            fds=[p.stdout]+([sys.stdin] if can_cancel else [])
+            r,_,_=select.select(fds,[],[],0.2)
+            if p.stdout in r:
+                line=p.stdout.readline()
+                if line:
+                    handle_line(line)
+            if can_cancel and sys.stdin in r:
+                ch=sys.stdin.read(1)
+                if ch=="\x1b":
+                    now=time.time()
+                    if now-last_esc<0.75:
+                        cancelled=True
+                        break
+                    last_esc=now
+    finally:
+        if old is not None:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    if cancelled:
+        p.terminate()
+        try:
+            p.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            p.kill()
+        print(f"\n  {YELLOW}Login cancelled.{RESET}")
+    else:
+        p.wait()
 
 def get_usage(name):
     a=find(name)
@@ -338,20 +391,23 @@ def usage():
         print("\nAll accounts have expired sessions — run 'claudes launch <name>' to log back in.")
 
 def _interactive_menu(rows, expired):
-    """Keyboard-navigable list: Up/Down move, Enter chooses, q/Ctrl-C cancels.
-    `rows` (active, sorted best-first) render under "Available"; `expired`
-    names render under "Login required". Returns ("use", name) for a chosen
-    active account, ("login", name) for a chosen login-required one, or
-    None if cancelled or raw terminal input isn't available."""
+    """Keyboard-navigable grid: Up/Down move within a column, Left/Right
+    switch column (only when both are present), Enter chooses, q/Ctrl-C
+    cancels. `rows` (active, sorted best-first) render under "Available";
+    `expired` names render under "Login required" — side by side when both
+    are non-empty, otherwise as a single column. Returns ("use", name) for
+    a chosen active account, ("login", name) for a chosen login-required
+    one, or None if cancelled or raw terminal input isn't available."""
     try:
         import termios, tty
     except ImportError:
         return None
 
-    entries=[("use",name) for name,_,_ in rows]+[("login",name) for name in expired]
-    if not entries:
+    if not rows and not expired:
         return None
-    idx=0
+    two_col=bool(rows) and bool(expired)
+    col=0 if rows else 1
+    row=0
 
     def plain_row(name,u,sc):
         return f"{name:12} session {u['session']:>3}%  week {u['week']:>3}%  score {sc:5.1f}"
@@ -363,36 +419,53 @@ def _interactive_menu(rows, expired):
     def plain_login(name):
         return f"{name:12} (Enter to log in)"
 
-    plains=[plain_row(n,u,sc) for n,u,sc in rows]+[plain_login(n) for n in expired]
-    box_w=max(len(p) for p in plains)
+    box_w_avail=max((len(plain_row(n,u,sc)) for n,u,sc in rows), default=0)
+    box_w_login=max((len(plain_login(n)) for n in expired), default=0)
 
-    def boxed(plain,colored,selected):
-        pad=" "*(box_w-len(plain))
+    def box_lines(plain,colored,width,selected):
+        pad=" "*(width-len(plain))
         if selected:
             content=f"\033[7m{plain}{pad}{RESET}"
             bc=GREEN
         else:
             content=colored+pad
             bc=GRAY
-        hbar="─"*(box_w+2)
+        hbar="─"*(width+2)
         return [
             f"{bc}┌{hbar}┐{RESET}",
             f"{bc}│{RESET} {content} {bc}│{RESET}",
             f"{bc}└{hbar}┘{RESET}",
         ]
 
+    GAP="    "
+
     def render():
-        lines=["Select an account (↑/↓ move, Enter choose, q cancel):",""]
-        if rows:
+        if two_col:
+            lines=["Select an account (↑/↓ move, ←/→ switch, Enter choose, q cancel):",""]
+        else:
+            lines=["Select an account (↑/↓ move, Enter choose, q cancel):",""]
+
+        avail_blocks=[box_lines(plain_row(n,u,sc), colored_row(n,u,sc), box_w_avail, col==0 and row==i)
+                      for i,(n,u,sc) in enumerate(rows)]
+        login_blocks=[box_lines(plain_login(n), f"{RED}{plain_login(n)}{RESET}", box_w_login, col==1 and row==j)
+                      for j,n in enumerate(expired)]
+
+        full_avail=box_w_avail+4
+        full_login=box_w_login+4
+
+        if two_col:
+            lines.append(f"{'Available:':<{full_avail}}{GAP}Login required:")
+            for i in range(max(len(avail_blocks), len(login_blocks))):
+                a=avail_blocks[i] if i<len(avail_blocks) else [" "*full_avail]*3
+                b=login_blocks[i] if i<len(login_blocks) else [" "*full_login]*3
+                for la,lb in zip(a,b):
+                    lines.append(la+GAP+lb)
+        elif rows:
             lines.append("Available:")
-            for i,(name,u,sc) in enumerate(rows):
-                lines+=boxed(plain_row(name,u,sc), colored_row(name,u,sc), i==idx)
-        if expired:
-            lines.append("")
+            for b in avail_blocks: lines+=b
+        else:
             lines.append("Login required:")
-            for j,name in enumerate(expired):
-                gi=len(rows)+j
-                lines+=boxed(plain_login(name), f"{RED}{plain_login(name)}{RESET}", gi==idx)
+            for b in login_blocks: lines+=b
         return lines
 
     fd=sys.stdin.fileno()
@@ -407,20 +480,30 @@ def _interactive_menu(rows, expired):
             key=None
             if ch=="\x1b":
                 if sys.stdin.read(1)=="[":
-                    key={"A":"up","B":"down"}.get(sys.stdin.read(1))
+                    key={"A":"up","B":"down","C":"right","D":"left"}.get(sys.stdin.read(1))
             elif ch in ("\r","\n"):
                 key="enter"
             elif ch in ("\x03","q","Q"):
                 key="cancel"
 
             if key=="enter":
-                result=entries[idx]
+                name=rows[row][0] if col==0 else expired[row]
+                result=("use" if col==0 else "login", name)
                 break
             if key=="cancel":
                 result=None
                 break
+            moved=False
             if key in ("up","down"):
-                idx=(idx-1)%len(entries) if key=="up" else (idx+1)%len(entries)
+                n=len(rows) if col==0 else len(expired)
+                row=(row-1)%n if key=="up" else (row+1)%n
+                moved=True
+            elif key in ("left","right") and two_col:
+                col=1-col
+                other_n=len(rows) if col==0 else len(expired)
+                row=min(row, other_n-1)
+                moved=True
+            if moved:
                 sys.stdout.write(f"\033[{len(lines)}A\r")
                 lines=render()
                 for l in lines:
