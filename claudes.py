@@ -295,12 +295,82 @@ def usage():
     elif expired:
         print("\nAll accounts have expired sessions — run 'claudes launch <name>' to log back in.")
 
+def _interactive_menu(rows, expired):
+    """Keyboard-navigable list: Up/Down move, Enter chooses, q/Ctrl-C cancels.
+    `rows` (active, sorted best-first) render under "Available"; `expired`
+    names render under "Login required". Returns ("use", name) for a chosen
+    active account, ("login", name) for a chosen login-required one, or
+    None if cancelled or raw terminal input isn't available."""
+    try:
+        import termios, tty
+    except ImportError:
+        return None
+
+    entries=[("use",name) for name,_,_ in rows]+[("login",name) for name in expired]
+    if not entries:
+        return None
+    idx=0
+
+    def render():
+        lines=["Select an account (↑/↓ move, Enter choose, q cancel):",""]
+        if rows:
+            lines.append("Available:")
+            for i,(name,u,sc) in enumerate(rows):
+                c=color(u["session"])
+                arrow=f"{GREEN}>{RESET} " if i==idx else "  "
+                lines.append(f"{arrow}{name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}")
+        if expired:
+            lines.append("")
+            lines.append("Login required:")
+            for j,name in enumerate(expired):
+                gi=len(rows)+j
+                arrow=f"{GREEN}>{RESET} " if gi==idx else "  "
+                lines.append(f"{arrow}{RED}{name:12} (Enter to log in){RESET}")
+        return lines
+
+    fd=sys.stdin.fileno()
+    old=termios.tcgetattr(fd)
+    lines=render()
+    print("\n".join(lines))
+    result=None
+    try:
+        tty.setraw(fd)
+        while True:
+            ch=sys.stdin.read(1)
+            key=None
+            if ch=="\x1b":
+                if sys.stdin.read(1)=="[":
+                    key={"A":"up","B":"down"}.get(sys.stdin.read(1))
+            elif ch in ("\r","\n"):
+                key="enter"
+            elif ch in ("\x03","q","Q"):
+                key="cancel"
+
+            if key=="enter":
+                result=entries[idx]
+                break
+            if key=="cancel":
+                result=None
+                break
+            if key in ("up","down"):
+                idx=(idx-1)%len(entries) if key=="up" else (idx+1)%len(entries)
+                sys.stdout.write(f"\033[{len(lines)}A\r")
+                lines=render()
+                for l in lines:
+                    sys.stdout.write("\033[2K"+l+"\r\n")
+                sys.stdout.flush()
+    except KeyboardInterrupt:
+        result=None
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    return result
+
 def _pick_best():
     """Check every account's session and usage live (printing the exact
-    command run for each), recommend the lowest-scoring account among those
-    with an active session, and let the user accept it or pick another.
-    Accounts with an expired/broken session are shown but excluded from
-    selection. Returns the chosen name."""
+    command run for each), then offer an arrow-key menu: active accounts
+    under "Available" (best score first), expired ones under "Login
+    required" — picking one of those launches claude so you can log back
+    in, then re-checks everything. Returns the chosen account name."""
     d=load()
     accounts=d["accounts"]
     if not accounts:
@@ -313,35 +383,36 @@ def _pick_best():
     for a in accounts:
         u=get_usage(a["name"])
         if not u["active"]:
-            print(f"  {RED}{a['name']:12} session expired — run 'claudes launch {a['name']}' to log in{RESET}\n")
+            print(f"  {RED}✗ {a['name']:12} session expired{RESET}\n")
             expired.append(a["name"])
             continue
         sc=u["session"]*0.7+u["week"]*0.3
         rows.append((a["name"],u,sc))
         c=color(u["session"])
-        print(f"  {len(rows)}. {a['name']:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}\n")
+        print(f"  {GREEN}✓{RESET} {a['name']:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}\n")
 
-    if not rows:
+    rows.sort(key=lambda r: r[2])
+
+    if rows:
+        print(f"Recommended: {rows[0][0]} — lowest score {rows[0][2]:.1f} among active sessions (70% session + 30% weekly usage)\n")
+        if not sys.stdin.isatty():
+            return rows[0][0]
+    else:
         msg="No accounts with an active session."
         if expired:
-            msg+=f" Expired: {', '.join(expired)} — log in with 'claudes launch <name>'."
+            msg+=f" ({', '.join(expired)} need a fresh login.)"
         print(msg)
+        if not sys.stdin.isatty() or not expired:
+            return None
+
+    choice=_interactive_menu(rows, expired)
+    if choice is None:
         return None
-
-    best_idx=min(range(len(rows)), key=lambda i: rows[i][2])
-    best_name,_,best_score=rows[best_idx]
-    print(f"Recommended: {best_name} — lowest score {best_score:.1f} among active sessions (70% session + 30% weekly usage)")
-
-    if not sys.stdin.isatty():
-        return best_name
-
-    try:
-        raw=input(f"Use {best_name}? [Enter to accept, or enter a number 1-{len(rows)}]: ").strip()
-    except EOFError:
-        raw=""
-    if raw.isdigit() and 1<=int(raw)<=len(rows):
-        return rows[int(raw)-1][0]
-    return best_name
+    kind,name=choice
+    if kind=="use":
+        return name
+    launch(name)
+    return _pick_best()
 
 def best():
     acc=_pick_best()

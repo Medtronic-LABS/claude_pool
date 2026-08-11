@@ -79,30 +79,39 @@ $ claudes launch alice
 `claude -p /usage` under its config — the exact command is printed as it
 runs, so you can see what's actually being checked. Claude Code sessions
 can expire and need a fresh login; a failed/non-zero result is treated as
-an expired session (not 0% usage), shown in the log, and excluded from
-`best`/`switch-best`'s selection — you'd otherwise risk being "recommended"
-an account that's actually logged out. `best`/`switch-best` then print a
-numbered list of accounts with an active session and prompt, e.g.:
+an expired session (not 0% usage) rather than silently making a
+logged-out account look like the best choice. `best`/`switch-best` then
+show an arrow-key menu, e.g.:
 
 ```
 Checking account sessions and usage...
 
   $ CLAUDE_CONFIG_DIR=/Users/you/.claudes/profiles/alice claude -p /usage
-  1. alice        session  12%  week   5%  score   9.9
+  ✓ alice        session  12%  week   5%  score   9.9
 
   $ CLAUDE_CONFIG_DIR=/Users/you/.claudes/profiles/carol claude -p /usage
-  carol        session expired — run 'claudes launch carol' to log in
+  ✗ carol        session expired
 
 Recommended: alice — lowest score 9.9 among active sessions (70% session + 30% weekly usage)
-Use alice? [Enter to accept, or enter a number 1-1]:
+
+Select an account (↑/↓ move, Enter choose, q cancel):
+
+Available:
+> alice        session  12%  week   5%  score   9.9
+
+Login required:
+  carol        (Enter to log in)
 ```
 
-Press Enter to go with the recommendation, or type a number to pick a
-different account instead. `best` then prints the chosen name;
-`switch-best` launches `claude` with it. If every account has expired,
-log back into one with `claudes launch <name>` and try again. When stdin
-isn't a terminal (cron jobs, scripts, pipes), the prompt is skipped and
-the recommended account is used automatically.
+Use ↑/↓ to move and Enter to choose — the recommended account is
+pre-selected, so pressing Enter immediately accepts it. Accounts under
+"Login required" are shown but excluded from the usage comparison;
+choosing one launches `claude` so you can log back in, then everything is
+re-checked and the menu reappears (now including that account, if login
+succeeded). Press `q` to cancel without picking anything. `best` then
+prints the chosen name; `switch-best` launches `claude` with it. When
+stdin isn't a terminal (cron jobs, scripts, pipes), the menu is skipped
+and the recommended account is used automatically.
 
 ## Shared session context
 

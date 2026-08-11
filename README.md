@@ -41,13 +41,13 @@ whichever account currently has the most headroom left.
 `claude -p /usage` under that account's config — printing the exact
 command as it runs — and treat a failed/non-zero result as an expired
 session rather than 0% usage (Claude Code sessions can expire and need a
-fresh login). `best`/`switch-best` then recommend the lowest-scoring
-account *among those with an active session* and prompt — press Enter to
-accept the recommendation or type a number to pick a different one.
-Expired accounts are shown in the log but excluded from selection; log
-back into one with `claudes launch <name>`. When stdin isn't a terminal
-(cron, scripts, pipes), the prompt is skipped and the recommendation is
-used automatically.
+fresh login). `best`/`switch-best` then show an arrow-key menu (↑/↓ to
+move, Enter to choose, q to cancel) with active accounts under
+"Available" — best score first, pre-selected — and expired ones under
+"Login required"; picking one of those launches `claude` so you can log
+back in, then re-checks everything and shows the menu again. When stdin
+isn't a terminal (cron, scripts, pipes), the menu is skipped and the
+recommendation is used automatically.
 
 ## Quick start
 
