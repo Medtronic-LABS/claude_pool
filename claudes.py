@@ -237,10 +237,18 @@ def list_accounts():
     for a in sorted(d["accounts"], key=lambda x:x["name"]):
         print(a["name"])
 
+def _require_claude():
+    if not shutil.which("claude"):
+        print(f"{RED}claude CLI not found on PATH{RESET} — install it and log in once per account (see SETUP.md prerequisites).")
+        return False
+    return True
+
 def launch(name):
     a=find(name)
     if not a:
         print("Not found"); return
+    if not _require_claude():
+        return
     CURRENT.write_text(name)
     _sync_last_session(name)
     env=os.environ.copy()
@@ -263,6 +271,8 @@ def _login(name):
     a=find(name)
     if not a:
         print("Not found"); return
+    if not _require_claude():
+        return
     env=os.environ.copy()
     env["CLAUDE_CONFIG_DIR"]=config_dir(a)
     env["BROWSER"]="true"
@@ -372,6 +382,8 @@ def color(v):
 def usage():
     d=load()
     names=[a["name"] for a in d["accounts"]]
+    if names and not _require_claude():
+        return
     if names:
         print(f"Checking {len(names)} account{'s' if len(names)!=1 else ''}...")
     results=get_usage_all(names)
@@ -394,7 +406,7 @@ def usage():
     if rows:
         print(f"\nBest Account: {rows[0][0]}")
     elif expired:
-        print("\nAll accounts have expired sessions — run 'claudes launch <name>' to log back in.")
+        print("\nAll accounts have expired sessions — run 'claudes' and pick one under \"Login required\" to log back in.")
 
 def _interactive_menu(rows, expired):
     """Keyboard-navigable grid: Up/Down move within a column, Left/Right
@@ -532,6 +544,9 @@ def _choose_account():
     accounts=d["accounts"]
     if not accounts:
         print("No accounts")
+        return None
+
+    if not _require_claude():
         return None
 
     names=[a["name"] for a in accounts]
