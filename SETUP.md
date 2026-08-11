@@ -86,7 +86,12 @@ and otherwise asks for confirmation — pass `--force` to skip the prompt
 `claudes` re-checks everything from scratch.
 
 `rename` only changes the name used to refer to the account; the profile
-directory, credentials, and sessions are untouched.
+directory, credentials, and sessions are untouched. This means the old
+name can't be reused via `claudes add` afterward — `add` will refuse
+since the renamed account still owns that profile directory. Renaming
+that account again does **not** free the directory (only its name
+changes); `claudes remove` on it is the only way to actually free the
+old name up for reuse.
 
 ## Commands
 

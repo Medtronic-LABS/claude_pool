@@ -225,6 +225,14 @@ def add(name):
     if any(a["name"]==name for a in d["accounts"]):
         print("Already exists"); return
     p=PROFILES/name
+    for a in d["accounts"]:
+        try:
+            cp=config_dir(a)
+        except KeyError:
+            continue
+        if Path(cp).resolve()==p.resolve():
+            print(f"{RED}Refusing: '{p}' is already used by account '{a['name']}'{RESET} — probably left behind by a rename. Run 'claudes remove {a['name']}' first, or pick a different name (renaming '{a['name']}' won't free this directory).")
+            return
     p.mkdir(parents=True, exist_ok=True)
     d["accounts"].append({"name":name,"config_path":str(p)})
     save(d)
