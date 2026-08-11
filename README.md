@@ -33,15 +33,15 @@ whichever account currently has the most headroom left.
 | `claudes list`           | List configured accounts                                         |
 | `claudes launch <name>`  | Launch `claude` using that account's config (alias: `switch`)    |
 | `claudes usage`          | Show session/weekly usage % for every account                    |
-| `claudes best`           | Print the name of the least-used account                         |
-| `claudes switch-best`    | Launch `claude` using the least-used account                     |
+| `claudes best`           | Recommend the least-used account, interactively                  |
+| `claudes switch-best`    | Recommend the least-used account, then launch `claude` with it   |
 | `claudes migrate`        | Link existing accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
-`best`/`switch-best` log each account's session/weekly usage and score to
-stderr as they're checked, then explain why the winner was picked — so
-`claudes best` still prints just the account name on stdout (safe to use
-in scripts, e.g. `claudes launch $(claudes best)`) while the reasoning is
-visible live in the terminal.
+`best`/`switch-best` show a live usage log for every account (session %,
+weekly %, weighted score) with the recommended one marked, then prompt —
+press Enter to accept the recommendation or type a number to pick a
+different account. When stdin isn't a terminal (cron, scripts, pipes),
+they skip the prompt and use the recommendation automatically.
 
 ## Quick start
 

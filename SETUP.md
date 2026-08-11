@@ -71,15 +71,29 @@ $ claudes launch alice
 | `claudes list`             | List configured accounts                                  |
 | `claudes launch <name>`    | Launch `claude` using that account's config (alias: `switch`) |
 | `claudes usage`            | Show session/weekly usage % for every account              |
-| `claudes best`             | Print the name of the least-used account                   |
-| `claudes switch-best`      | Launch `claude` using the least-used account                |
+| `claudes best`             | Recommend the least-used account, interactively             |
+| `claudes switch-best`      | Recommend the least-used account, then launch `claude` with it |
 | `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
-`best`/`switch-best` print a live log to stderr as each account's usage
-is checked (session %, weekly %, and the weighted score), then a line
-explaining which account won and why. `claudes best`'s stdout stays just
-the account name, so it's still safe to compose, e.g.
-`claudes launch $(claudes best)`.
+`best` and `switch-best` check every account's usage live and print a
+numbered list (session %, weekly %, weighted score) with the
+lowest-scoring account marked `<- recommended`, e.g.:
+
+```
+Checking account usage...
+
+  1. alice        session  12%  week   5%  score   9.9  <- recommended
+  2. bob          session  45%  week  20%  score  37.5
+
+Recommended: alice — lowest score 9.9 (70% session + 30% weekly usage)
+Use alice? [Enter to accept, or enter a number 1-2]:
+```
+
+Press Enter to go with the recommendation, or type a number to pick a
+different account instead. `best` then prints the chosen name;
+`switch-best` launches `claude` with it. When stdin isn't a terminal
+(cron jobs, scripts, pipes), the prompt is skipped and the recommended
+account is used automatically.
 
 ## Shared session context
 

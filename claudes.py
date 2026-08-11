@@ -245,6 +245,7 @@ def launch(name):
     _sync_last_session(name)
     env=os.environ.copy()
     env["CLAUDE_CONFIG_DIR"]=config_dir(a)
+    sys.stdout.flush()
     subprocess.run(["claude"], env=env)
 
 def get_usage(name):
@@ -287,26 +288,47 @@ def usage():
         print(f"\nBest Account: {rows[0][0]}")
 
 def _pick_best():
-    """Evaluate every account's usage live (logged to stderr) and return the winning name."""
+    """Show a live usage log for every account, recommend the lowest-scoring
+    one, and let the user accept it or pick another. Returns the chosen name."""
     d=load()
-    best_acc=None; best_score=None; best_usage=None
-    for a in d["accounts"]:
+    accounts=d["accounts"]
+    if not accounts:
+        print("No accounts")
+        return None
+
+    print("Checking account usage...\n")
+    rows=[]
+    best_idx=None; best_score=None
+    for a in accounts:
         u=get_usage(a["name"])
         sc=u["session"]*0.7+u["week"]*0.3
-        c=color(u["session"])
-        print(f"  {a['name']:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}", file=sys.stderr, flush=True)
+        rows.append((a["name"],u,sc))
         if best_score is None or sc<best_score:
-            best_score=sc; best_acc=a["name"]; best_usage=u
-    if best_acc:
-        print(f"\n-> picked {best_acc}: lowest score {best_score:.1f} "
-              f"(session {best_usage['session']}% x 0.7 + week {best_usage['week']}% x 0.3)", file=sys.stderr)
-    else:
-        print("No accounts", file=sys.stderr)
-    return best_acc
+            best_score=sc; best_idx=len(rows)-1
+
+    for i,(name,u,sc) in enumerate(rows):
+        c=color(u["session"])
+        tag="  <- recommended" if i==best_idx else ""
+        print(f"  {i+1}. {name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}{tag}")
+
+    best_name=rows[best_idx][0]
+    print(f"\nRecommended: {best_name} — lowest score {best_score:.1f} (70% session + 30% weekly usage)")
+
+    if not sys.stdin.isatty():
+        return best_name
+
+    try:
+        raw=input(f"Use {best_name}? [Enter to accept, or enter a number 1-{len(rows)}]: ").strip()
+    except EOFError:
+        raw=""
+    if raw.isdigit() and 1<=int(raw)<=len(rows):
+        return rows[int(raw)-1][0]
+    return best_name
 
 def best():
     acc=_pick_best()
-    print(acc or "No accounts")
+    if acc:
+        print(acc)
 
 def switch_best():
     acc=_pick_best()
