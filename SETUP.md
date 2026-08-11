@@ -97,14 +97,19 @@ Recommended: alice — lowest score 9.9 among active sessions (70% session + 30%
 Select an account (↑/↓ move, Enter choose, q cancel):
 
 Available:
-> alice        session  12%  week   5%  score   9.9
+┌───────────────────────────────────────────┐
+│ alice        session  12%  week   5%  score   9.9 │  <- selected: bordered + highlighted
+└───────────────────────────────────────────┘
 
 Login required:
-  carol        (Enter to log in)
+┌───────────────────────────────────────────┐
+│ carol        (Enter to log in)             │
+└───────────────────────────────────────────┘
 ```
 
-Use ↑/↓ to move and Enter to choose — the recommended account is
-pre-selected, so pressing Enter immediately accepts it. Accounts under
+Use ↑/↓ to move and Enter to choose — the selected account is boxed and
+highlighted (the recommended one starts pre-selected, so pressing Enter
+immediately accepts it). Accounts under
 "Login required" are shown but excluded from the usage comparison;
 choosing one launches `claude` so you can log back in, then everything is
 re-checked and the menu reappears (now including that account, if login

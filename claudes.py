@@ -311,21 +311,46 @@ def _interactive_menu(rows, expired):
         return None
     idx=0
 
+    def plain_row(name,u,sc):
+        return f"{name:12} session {u['session']:>3}%  week {u['week']:>3}%  score {sc:5.1f}"
+
+    def colored_row(name,u,sc):
+        c=color(u["session"])
+        return f"{name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}"
+
+    def plain_login(name):
+        return f"{name:12} (Enter to log in)"
+
+    plains=[plain_row(n,u,sc) for n,u,sc in rows]+[plain_login(n) for n in expired]
+    box_w=max(len(p) for p in plains)
+
+    def boxed(plain,colored,selected):
+        pad=" "*(box_w-len(plain))
+        if selected:
+            content=f"\033[7m{plain}{pad}{RESET}"
+            bc=GREEN
+        else:
+            content=colored+pad
+            bc=GRAY
+        hbar="─"*(box_w+2)
+        return [
+            f"{bc}┌{hbar}┐{RESET}",
+            f"{bc}│{RESET} {content} {bc}│{RESET}",
+            f"{bc}└{hbar}┘{RESET}",
+        ]
+
     def render():
         lines=["Select an account (↑/↓ move, Enter choose, q cancel):",""]
         if rows:
             lines.append("Available:")
             for i,(name,u,sc) in enumerate(rows):
-                c=color(u["session"])
-                arrow=f"{GREEN}>{RESET} " if i==idx else "  "
-                lines.append(f"{arrow}{name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}")
+                lines+=boxed(plain_row(name,u,sc), colored_row(name,u,sc), i==idx)
         if expired:
             lines.append("")
             lines.append("Login required:")
             for j,name in enumerate(expired):
                 gi=len(rows)+j
-                arrow=f"{GREEN}>{RESET} " if gi==idx else "  "
-                lines.append(f"{arrow}{RED}{name:12} (Enter to log in){RESET}")
+                lines+=boxed(plain_login(name), f"{RED}{plain_login(name)}{RESET}", gi==idx)
         return lines
 
     fd=sys.stdin.fileno()
