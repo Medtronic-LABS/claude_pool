@@ -77,17 +77,18 @@ $ claudes
 | `claudes usage`            | Show session/weekly usage % for every account with an active session |
 | `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
-`usage` and bare `claudes` check each account for real by running
-`claude -p /usage` under its config. Each account gets one line: the
-command flashes briefly while it runs, then is replaced in place by the
-result — so checking several accounts doesn't scroll the log, but you can
-still see what's actually being run. Claude Code sessions can expire and
-need a fresh login; a failed/non-zero result is treated as an expired
-session (not 0% usage) rather than silently making a logged-out account
-look like the best choice. `claudes` then shows an arrow-key menu, e.g.:
+`usage` and bare `claudes` check every account for real by running
+`claude -p /usage` under its config — all accounts are checked
+concurrently (one thread per account), so the wait is bounded by the
+slowest single account's check rather than the sum of all of them, then
+every result prints at once, one line per account. Claude Code sessions
+can expire and need a fresh login; a failed/non-zero result is treated as
+an expired session (not 0% usage) rather than silently making a
+logged-out account look like the best choice. `claudes` then shows an
+arrow-key menu, e.g.:
 
 ```
-Checking account sessions and usage...
+Checking 2 accounts...
   ✓ alice        session  12%  week   5%  score   9.9
   ✗ carol        session expired
 

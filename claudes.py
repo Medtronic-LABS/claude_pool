@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json, os, re, select, shutil, stat, subprocess, sys, time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HOME = Path.home()
@@ -341,25 +342,27 @@ def get_usage(name):
     if not a: return {"session":0,"week":0,"active":False}
     env=os.environ.copy()
     env["CLAUDE_CONFIG_DIR"]=config_dir(a)
-    cmd=["claude","-p","/usage"]
-    live=sys.stdout.isatty()
-    if live:
-        sys.stdout.write(f"  {GRAY}$ CLAUDE_CONFIG_DIR={env['CLAUDE_CONFIG_DIR']} {' '.join(cmd)}{RESET}")
-        sys.stdout.flush()
     try:
-        r=subprocess.run(cmd,capture_output=True,text=True,env=env,timeout=60)
+        r=subprocess.run(["claude","-p","/usage"],capture_output=True,text=True,env=env,timeout=60)
         out=r.stdout
         s=re.search(r"Current session:\s+(\d+)%", out)
         w=re.search(r"Current week.*?:\s+(\d+)%", out)
         if r.returncode!=0 or not s or not w:
-            result={"session":0,"week":0,"active":False}
-        else:
-            result={"session":int(s.group(1)),"week":int(w.group(1)),"active":True}
+            return {"session":0,"week":0,"active":False}
+        return {"session":int(s.group(1)),"week":int(w.group(1)),"active":True}
     except Exception:
-        result={"session":0,"week":0,"active":False}
-    if live:
-        sys.stdout.write("\r\033[2K")
-    return result
+        return {"session":0,"week":0,"active":False}
+
+def get_usage_all(names):
+    """Check every named account's usage concurrently (one thread per
+    account, each blocking on its own `claude -p /usage` subprocess).
+    Returns a list of usage dicts in the same order as `names`; blocks
+    until all complete, so the wait is bounded by the slowest single
+    check rather than the sum of every account's check time."""
+    if not names:
+        return []
+    with ThreadPoolExecutor(max_workers=len(names)) as ex:
+        return list(ex.map(get_usage, names))
 
 def color(v):
     if v>=80: return RED
@@ -368,14 +371,17 @@ def color(v):
 
 def usage():
     d=load()
+    names=[a["name"] for a in d["accounts"]]
+    if names:
+        print(f"Checking {len(names)} account{'s' if len(names)!=1 else ''}...")
+    results=get_usage_all(names)
     rows=[]; expired=[]
-    for a in d["accounts"]:
-        u=get_usage(a["name"])
+    for name,u in zip(names,results):
         if not u["active"]:
-            expired.append(a["name"])
+            expired.append(name)
             continue
         score=u["session"]*0.7+u["week"]*0.3
-        rows.append((a["name"],u["session"],u["week"],score))
+        rows.append((name,u["session"],u["week"],score))
     rows.sort(key=lambda x:x[3])
     print("\nCLAUDE ACCOUNT USAGE\n")
     print(f"{'Account':12} {'Session':10} {'Weekly':10} Score")
@@ -516,30 +522,33 @@ def _interactive_menu(rows, expired):
     return result
 
 def _choose_account():
-    """Check every account's session and usage live (printing the exact
-    command run for each), then offer an arrow-key menu: active accounts
-    under "Available" (best score first), expired ones under "Login
-    required" — picking one of those launches claude so you can log back
-    in, then re-checks everything. Returns the chosen account name."""
+    """Check every account's session and usage concurrently (bounded by
+    the slowest single check, not the sum of all), then offer an
+    arrow-key menu: active accounts under "Available" (best score
+    first), expired ones under "Login required" — picking one of those
+    launches claude so you can log back in, then re-checks everything.
+    Returns the chosen account name."""
     d=load()
     accounts=d["accounts"]
     if not accounts:
         print("No accounts")
         return None
 
-    print("Checking account sessions and usage...")
+    names=[a["name"] for a in accounts]
+    print(f"Checking {len(names)} account{'s' if len(names)!=1 else ''}...")
+    results=get_usage_all(names)
+
     rows=[]
     expired=[]
-    for a in accounts:
-        u=get_usage(a["name"])
+    for name,u in zip(names,results):
         if not u["active"]:
-            print(f"  {RED}✗ {a['name']:12} session expired{RESET}")
-            expired.append(a["name"])
+            print(f"  {RED}✗ {name:12} session expired{RESET}")
+            expired.append(name)
             continue
         sc=u["session"]*0.7+u["week"]*0.3
-        rows.append((a["name"],u,sc))
+        rows.append((name,u,sc))
         c=color(u["session"])
-        print(f"  {GREEN}✓{RESET} {a['name']:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}")
+        print(f"  {GREEN}✓{RESET} {name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}")
 
     rows.sort(key=lambda r: r[2])
     print()

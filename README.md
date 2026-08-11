@@ -35,12 +35,12 @@ info to help you choose.
 | `claudes usage`          | Show session/weekly usage % for every account with an active session |
 | `claudes migrate`        | Link existing accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
-Running bare `claudes` checks each account by actually running
-`claude -p /usage` under its config — the command flashes on one line while
-it runs, then is replaced in place by the result, so checking several
-accounts stays a compact one-line-each log — and treats a failed/non-zero
-result as an expired session rather than 0% usage (Claude Code sessions can
-expire and need a fresh login). It then shows an arrow-key menu (↑/↓ move,
+Running bare `claudes` checks every account by actually running
+`claude -p /usage` under its config — all accounts are checked concurrently,
+so the wait is bounded by the slowest single account's check rather than
+the sum of all of them — and treats a failed/non-zero result as an expired
+session rather than 0% usage (Claude Code sessions can expire and need a
+fresh login). It then shows an arrow-key menu (↑/↓ move,
 ←/→ switch column, Enter choose, q cancel) with active accounts under
 "Available" and expired ones under "Login required" — side by side when
 both exist, best score pre-selected. Picking a login-required account
