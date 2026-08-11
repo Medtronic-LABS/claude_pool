@@ -116,10 +116,14 @@ point the account at the shared profile directory itself).
 concurrently (one thread per account), so the wait is bounded by the
 slowest single account's check rather than the sum of all of them, then
 every result prints at once, one line per account. Claude Code sessions
-can expire and need a fresh login; a failed/non-zero result is treated as
-an expired session (not 0% usage) rather than silently making a
-logged-out account look like the best choice. `claudes` then shows an
-arrow-key menu, e.g.:
+can expire and need a fresh login; a returncode-confirmed failure is
+treated as an expired session (not 0% usage) rather than silently making a
+logged-out account look like the best choice. A check that merely fails to
+complete — timeout, network blip, missing config, or output the CLI
+returned successfully but that doesn't parse — is reported separately as
+"check failed" and excluded from the login-required menu entirely, so a
+flaky check never triggers `claude auth login` on an account that might
+still be perfectly valid. `claudes` then shows an arrow-key menu, e.g.:
 
 ```
 Checking 2 accounts...

@@ -41,16 +41,20 @@ info to help you choose.
 Running bare `claudes` checks every account by actually running
 `claude -p /usage` under its config — all accounts are checked concurrently,
 so the wait is bounded by the slowest single account's check rather than
-the sum of all of them — and treats a failed/non-zero result as an expired
-session rather than 0% usage (Claude Code sessions can expire and need a
-fresh login). It then shows an arrow-key menu (↑/↓ move,
-←/→ switch column, Enter choose, q cancel) with active accounts under
-"Available" and expired ones under "Login required" — side by side when
-both exist, best score pre-selected. Picking a login-required account
-runs `claude auth login` directly and copies the login link to your
-clipboard instead of opening a browser tab, so you can paste it into
-whichever browser you want (press Esc twice while it's waiting to cancel
-and pick a different account); everything is then re-checked and the menu
+the sum of all of them — and distinguishes a returncode-confirmed "not
+logged in" result (session expired, needs a fresh login) from a check that
+simply failed to complete (timeout, network blip, unparseable output) and
+should just be retried rather than triggering a login. It then shows an
+arrow-key menu (↑/↓ move, ←/→ switch column, Enter choose, q cancel) with
+active accounts under "Available" and expired ones under "Login required"
+— side by side when both exist, best score pre-selected; accounts whose
+check merely failed are reported separately and never offered in the menu,
+so nothing but a genuinely expired session can trigger a login prompt.
+Picking a login-required account runs `claude auth login` directly and
+copies the login link to your clipboard instead of opening a browser tab,
+so you can paste it into whichever browser you want (press Esc twice
+while it's waiting to cancel and pick a different account); everything is
+then re-checked and the menu
 shown again. When stdin isn't a terminal (cron, scripts, pipes), the menu
 is skipped and the recommended account launches automatically.
 

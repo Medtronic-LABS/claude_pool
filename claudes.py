@@ -412,19 +412,23 @@ def _login(name):
 
 def get_usage(name):
     a=find(name)
-    if not a: return {"session":0,"week":0,"active":False}
+    if not a: return {"session":0,"week":0,"active":False,"reason":"error"}
     env=os.environ.copy()
-    env["CLAUDE_CONFIG_DIR"]=config_dir(a)
     try:
+        env["CLAUDE_CONFIG_DIR"]=config_dir(a)
         r=subprocess.run(["claude","-p","/usage"],capture_output=True,text=True,env=env,timeout=60)
         out=r.stdout
         s=re.search(r"Current session:\s+(\d+)%", out)
         w=re.search(r"Current week.*?:\s+(\d+)%", out)
-        if r.returncode!=0 or not s or not w:
-            return {"session":0,"week":0,"active":False}
+        if r.returncode!=0:
+            return {"session":0,"week":0,"active":False,"reason":"expired"}
+        if not s or not w:
+            return {"session":0,"week":0,"active":False,"reason":"error"}
         return {"session":int(s.group(1)),"week":int(w.group(1)),"active":True}
+    except subprocess.TimeoutExpired:
+        return {"session":0,"week":0,"active":False,"reason":"timeout"}
     except Exception:
-        return {"session":0,"week":0,"active":False}
+        return {"session":0,"week":0,"active":False,"reason":"error"}
 
 def get_usage_all(names):
     """Check every named account's usage concurrently (one thread per
@@ -450,10 +454,11 @@ def usage():
     if names:
         print(f"Checking {len(names)} account{'s' if len(names)!=1 else ''}...")
     results=get_usage_all(names)
-    rows=[]; expired=[]
+    rows=[]; expired=[]; failed=[]
     for name,u in zip(names,results):
         if not u["active"]:
-            expired.append(name)
+            if u.get("reason")=="expired": expired.append(name)
+            else: failed.append(name)
             continue
         score=u["session"]*0.7+u["week"]*0.3
         rows.append((name,u["session"],u["week"],score))
@@ -466,10 +471,16 @@ def usage():
         print(f"{n:12} {c}{s:>3}%{RESET}       {c}{w:>3}%{RESET}      {sc:.1f}")
     for n in expired:
         print(f"{n:12} {RED}{'expired':>7}{RESET}    {RED}{'expired':>7}{RESET}    -")
+    for n in failed:
+        print(f"{n:12} {YELLOW}{'check failed':>12}{RESET} {YELLOW}{'check failed':>12}{RESET} -")
     if rows:
         print(f"\nBest Account: {rows[0][0]}")
-    elif expired:
+    elif expired and not failed:
         print("\nAll accounts have expired sessions — run 'claudes' and pick one under \"Login required\" to log back in.")
+    elif failed and not expired:
+        print("\nCould not check any account (timeout/network) — try again.")
+    elif expired and failed:
+        print(f"\n{', '.join(expired)} have expired sessions — run 'claudes' and pick one under \"Login required\" to log back in. {', '.join(failed)} could not be checked — try again.")
 
 def _interactive_menu(rows, expired):
     """Keyboard-navigable grid: Up/Down move within a column, Left/Right
@@ -618,10 +629,15 @@ def _choose_account():
 
     rows=[]
     expired=[]
+    failed=[]
     for name,u in zip(names,results):
         if not u["active"]:
-            print(f"  {RED}✗ {name:12} session expired{RESET}")
-            expired.append(name)
+            if u.get("reason")=="expired":
+                print(f"  {RED}✗ {name:12} session expired{RESET}")
+                expired.append(name)
+            else:
+                print(f"  {YELLOW}⚠ {name:12} check failed — {u.get('reason')}, try again{RESET}")
+                failed.append(name)
             continue
         sc=u["session"]*0.7+u["week"]*0.3
         rows.append((name,u,sc))
@@ -639,6 +655,8 @@ def _choose_account():
         msg="No accounts with an active session."
         if expired:
             msg+=f" ({', '.join(expired)} need a fresh login.)"
+        if failed:
+            msg+=f" ({', '.join(failed)} could not be checked — try again.)"
         print(msg)
         if not sys.stdin.isatty() or not expired:
             return None
