@@ -1,4 +1,6 @@
 profiles/
 accounts.json
+shared/
+current_profile
 __pycache__/
 *.pyc

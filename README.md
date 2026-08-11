@@ -17,6 +17,11 @@ whichever account currently has the most headroom left.
 - It can also poll each account's `/usage` output and report session/weekly
   usage %, so you can jump to (or auto-launch) whichever account is least
   used.
+- Project history, plugins, cache, shell history, and settings are shared
+  across every account via a `shared/` layer (symlinked into each profile),
+  so switching accounts doesn't mean losing track of what you were doing —
+  resuming a project picks up the latest session no matter which account
+  you launch it from.
 
 ## Commands
 
@@ -29,6 +34,7 @@ whichever account currently has the most headroom left.
 | `claudes usage`          | Show session/weekly usage % for every account                    |
 | `claudes best`           | Print the name of the least-used account                         |
 | `claudes switch-best`    | Launch `claude` using the least-used account                     |
+| `claudes migrate`        | Link existing accounts into the shared session layer and import historical session data |
 
 ## Quick start
 
@@ -46,4 +52,4 @@ troubleshooting.
 - `claudes.py` — the `claudes` CLI (stdlib-only, no third-party deps)
 - `setup.sh` — installer; wires up `requirements.txt`, runs `claudes.py install`, and falls back to a no-sudo PATH setup if needed
 - `requirements.txt` — Python dependencies (currently none)
-- `accounts.json`, `profiles/` — local per-machine account state and per-account Claude configs; gitignored, never committed
+- `accounts.json`, `profiles/`, `shared/` — local per-machine account state, per-account Claude configs, and the cross-account shared session layer; gitignored, never committed
