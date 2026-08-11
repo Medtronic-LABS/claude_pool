@@ -647,6 +647,12 @@ if __name__=="__main__":
     elif cmd=="":
         acc=_choose_account()
         if acc: launch(acc)
+    elif find(cmd):
+        launch(cmd)
     else:
         print("Commands: install, add <name>, list, usage, migrate")
         print("Run 'claudes' with no arguments to pick an account and launch it.")
+        print("Run 'claudes <name>' to launch a specific account directly.")
+        names=sorted(a["name"] for a in load()["accounts"])
+        if names:
+            print(f"Configured accounts: {', '.join(names)}")

@@ -65,14 +65,19 @@ https://claude.ai/... (your actual login URL)
 $ claudes list
 alice
 
-$ claudes
+$ claudes alice
 ```
+
+(`claudes alice` launches that account directly. `claudes` with no
+arguments works too — with only one account it's the same thing, just
+after a quick usage check.)
 
 ## Commands
 
 | Command                  | Description                                              |
 |---------------------------|-----------------------------------------------------------|
 | `claudes`                  | Check every account's session/usage live, then pick one to launch |
+| `claudes <name>`           | Launch that account directly — skips the usage check entirely |
 | `claudes list`             | List configured accounts                                  |
 | `claudes usage`            | Show session/weekly usage % for every account with an active session |
 | `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
@@ -114,6 +119,10 @@ re-checked and the menu reappears (now including that account, if login
 succeeded). Press `q` to cancel without picking anything. When stdin
 isn't a terminal (cron jobs, scripts, pipes), the menu is skipped and the
 recommended account launches automatically.
+
+Already know which account you want? `claudes <name>` skips all of the
+above — no usage check, no menu — and launches `claude` under that
+account's config immediately.
 
 ## Logging in
 
