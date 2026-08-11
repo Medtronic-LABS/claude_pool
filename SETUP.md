@@ -75,6 +75,12 @@ $ claudes launch alice
 | `claudes switch-best`      | Launch `claude` using the least-used account                |
 | `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
+`best`/`switch-best` print a live log to stderr as each account's usage
+is checked (session %, weekly %, and the weighted score), then a line
+explaining which account won and why. `claudes best`'s stdout stays just
+the account name, so it's still safe to compose, e.g.
+`claudes launch $(claudes best)`.
+
 ## Shared session context
 
 Every profile normally has its own `projects/`, `plugins/`, `cache/`,

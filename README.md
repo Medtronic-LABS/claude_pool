@@ -37,6 +37,12 @@ whichever account currently has the most headroom left.
 | `claudes switch-best`    | Launch `claude` using the least-used account                     |
 | `claudes migrate`        | Link existing accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
+`best`/`switch-best` log each account's session/weekly usage and score to
+stderr as they're checked, then explain why the winner was picked — so
+`claudes best` still prints just the account name on stdout (safe to use
+in scripts, e.g. `claudes launch $(claudes best)`) while the reasoning is
+visible live in the terminal.
+
 ## Quick start
 
 ```bash

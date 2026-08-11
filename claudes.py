@@ -286,26 +286,32 @@ def usage():
     if rows:
         print(f"\nBest Account: {rows[0][0]}")
 
-def best():
+def _pick_best():
+    """Evaluate every account's usage live (logged to stderr) and return the winning name."""
     d=load()
-    best_acc=None; best_score=9999
+    best_acc=None; best_score=None; best_usage=None
     for a in d["accounts"]:
         u=get_usage(a["name"])
         sc=u["session"]*0.7+u["week"]*0.3
-        if sc<best_score:
-            best_score=sc; best_acc=a["name"]
-    print(best_acc or "No accounts")
+        c=color(u["session"])
+        print(f"  {a['name']:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}", file=sys.stderr, flush=True)
+        if best_score is None or sc<best_score:
+            best_score=sc; best_acc=a["name"]; best_usage=u
+    if best_acc:
+        print(f"\n-> picked {best_acc}: lowest score {best_score:.1f} "
+              f"(session {best_usage['session']}% x 0.7 + week {best_usage['week']}% x 0.3)", file=sys.stderr)
+    else:
+        print("No accounts", file=sys.stderr)
+    return best_acc
+
+def best():
+    acc=_pick_best()
+    print(acc or "No accounts")
 
 def switch_best():
-    d=load()
-    best_acc=None; best_score=9999
-    for a in d["accounts"]:
-        u=get_usage(a["name"])
-        sc=u["session"]*0.7+u["week"]*0.3
-        if sc<best_score:
-            best_score=sc; best_acc=a["name"]
-    if best_acc:
-        launch(best_acc)
+    acc=_pick_best()
+    if acc:
+        launch(acc)
 
 def migrate():
     """Set up shared session layer and import all historical data."""
