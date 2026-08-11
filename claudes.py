@@ -700,7 +700,8 @@ def migrate():
 if __name__=="__main__":
     cmd=sys.argv[1] if len(sys.argv)>1 else ""
     if cmd=="install": install()
-    elif cmd=="add": add(sys.argv[2])
+    elif cmd=="add" and len(sys.argv)>2: add(sys.argv[2])
+    elif cmd=="add": print("Usage: claudes add <name>")
     elif cmd=="remove" and len(sys.argv)>2: remove(sys.argv[2], force="--force" in sys.argv[3:])
     elif cmd=="remove": print("Usage: claudes remove <name> [--force]")
     elif cmd=="rename" and len(sys.argv)>3: rename(sys.argv[2], sys.argv[3])
