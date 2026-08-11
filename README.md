@@ -21,7 +21,8 @@ whichever account currently has the most headroom left.
   across every account via a `shared/` layer (symlinked into each profile),
   so switching accounts doesn't mean losing track of what you were doing —
   resuming a project picks up the latest session no matter which account
-  you launch it from.
+  you launch it from. `claudes migrate` can fold plain `claude` (the
+  default `~/.claude` config) into this shared layer too.
 
 ## Commands
 
@@ -34,7 +35,7 @@ whichever account currently has the most headroom left.
 | `claudes usage`          | Show session/weekly usage % for every account                    |
 | `claudes best`           | Print the name of the least-used account                         |
 | `claudes switch-best`    | Launch `claude` using the least-used account                     |
-| `claudes migrate`        | Link existing accounts into the shared session layer and import historical session data |
+| `claudes migrate`        | Link existing accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
 ## Quick start
 

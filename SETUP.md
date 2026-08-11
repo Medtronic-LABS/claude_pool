@@ -73,7 +73,7 @@ $ claudes launch alice
 | `claudes usage`            | Show session/weekly usage % for every account              |
 | `claudes best`             | Print the name of the least-used account                   |
 | `claudes switch-best`      | Launch `claude` using the least-used account                |
-| `claudes migrate`          | Link accounts into the shared session layer and import historical sessions |
+| `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
 ## Shared session context
 
@@ -105,22 +105,32 @@ If you already had accounts set up before this feature existed (or ran
 claudes migrate
 ```
 
-This will, for every registered account:
+This will:
 
-1. Skip any profile with an active `claude` process (finish or exit that
-   session first, then re-run `claudes migrate`).
-2. Move each profile's existing `projects/`, `plugins/`, `cache/`,
+1. For every registered account, and for the default `~/.claude` config
+   (used whenever you run plain `claude` without `CLAUDE_CONFIG_DIR` set)
+   — skip it if a `claude` process is currently active under it (finish or
+   exit that session first, then re-run `claudes migrate`).
+2. Otherwise, move its existing `projects/`, `plugins/`, `cache/`,
    `history.jsonl`, and `settings.json` into `<CLAUDES_BASE>/shared/`
    (merging rather than overwriting anything already shared), then
-   replace them with symlinks.
-3. Import historical session/history data from stale locations — old
-   per-account directories directly under `~/.claudes/`, and `~/.claude`
-   (Claude Code's default config dir, including any pre-`claude_pool`
-   sessions) — without deleting the originals.
+   replace them with symlinks. This means plain `claude` gets folded into
+   the shared layer permanently, not just copied once — from then on it
+   reads and writes the same shared context as every pool account.
+3. Separately, copy in (without deleting) any leftover historical
+   session/history data sitting in stale locations from earlier setups —
+   old per-account directories directly under `~/.claudes/`, and orphaned
+   `~/.claude/<name>` / `~/.claude/profiles/<name>` directories.
 
 It prints how many session files and history entries were imported from
-each source. It's safe to re-run; already-shared or already-imported data
-is skipped rather than duplicated.
+each source, and which profiles (including `~/.claude` itself) got linked.
+It's safe to re-run; already-shared or already-imported data is skipped
+rather than duplicated.
+
+**Note:** this changes `~/.claude`'s directory structure — `projects/`,
+`plugins/`, `cache/`, `history.jsonl`, and `settings.json` become symlinks
+into `<CLAUDES_BASE>/shared/`. Nothing else under `~/.claude` (credentials,
+etc.) is touched.
 
 ## Config
 

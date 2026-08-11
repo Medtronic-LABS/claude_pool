@@ -327,7 +327,19 @@ def migrate():
         print(f"  Linking {a['name']} ({cp})...")
         setup_shared_links(cp)
 
-    print("\nImporting historical session data...")
+    # Fold the default `claude` config (used when CLAUDE_CONFIG_DIR isn't set)
+    # into the shared layer too, so plain `claude` stays in sync with every
+    # pool account from now on — not just a one-time snapshot.
+    default_claude = HOME / ".claude"
+    if str(default_claude) not in registered_paths and default_claude.is_dir():
+        if _has_active_sessions(default_claude):
+            print("  Skipping ~/.claude — Claude is currently running under it.")
+            print("    Close that Claude session and re-run 'claudes migrate'.")
+        else:
+            print("  Linking ~/.claude (default config)...")
+            setup_shared_links(default_claude)
+
+    print("\nImporting remaining historical session data...")
     names = [a["name"] for a in d["accounts"]]
     sources = []
 
@@ -338,14 +350,12 @@ def migrate():
         if p.is_dir() and not p.is_symlink() and str(p) not in registered_paths:
             sources.append(p)
 
-    # ~/.claude default dir (pre-claude_pool sessions) and its sub-dirs
-    default_claude = HOME / ".claude"
-    if default_claude.is_dir():
-        sources.append(default_claude)
-        for name in names:
-            for sub in [default_claude / name, default_claude / "profiles" / name]:
-                if sub.is_dir() and not sub.is_symlink() and str(sub) not in registered_paths:
-                    sources.append(sub)
+    # Stale per-account sub-dirs left under ~/.claude from earlier setups
+    # (~/.claude itself is handled above via setup_shared_links, not here)
+    for name in names:
+        for sub in [default_claude / name, default_claude / "profiles" / name]:
+            if sub.is_dir() and not sub.is_symlink() and str(sub) not in registered_paths:
+                sources.append(sub)
 
     total_s = total_h = 0
     for src in sources:
