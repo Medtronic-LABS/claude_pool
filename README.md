@@ -38,10 +38,12 @@ whichever account currently has the most headroom left.
 | `claudes migrate`        | Link existing accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
 `usage`, `best`, and `switch-best` check each account by actually running
-`claude -p /usage` under that account's config — printing the exact
-command as it runs — and treat a failed/non-zero result as an expired
-session rather than 0% usage (Claude Code sessions can expire and need a
-fresh login). `best`/`switch-best` then show an arrow-key menu (↑/↓ to
+`claude -p /usage` under that account's config — the command flashes on
+one line while it runs, then is replaced in place by the result, so
+checking several accounts stays a compact one-line-each log — and treat a
+failed/non-zero result as an expired session rather than 0% usage (Claude
+Code sessions can expire and need a fresh login). `best`/`switch-best`
+then show an arrow-key menu (↑/↓ to
 move, Enter to choose, q to cancel) with active accounts under
 "Available" — best score first, pre-selected — and expired ones under
 "Login required"; picking one of those launches `claude` so you can log

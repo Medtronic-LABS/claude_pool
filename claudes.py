@@ -254,17 +254,24 @@ def get_usage(name):
     env=os.environ.copy()
     env["CLAUDE_CONFIG_DIR"]=config_dir(a)
     cmd=["claude","-p","/usage"]
-    print(f"  {GRAY}$ CLAUDE_CONFIG_DIR={env['CLAUDE_CONFIG_DIR']} {' '.join(cmd)}{RESET}")
+    live=sys.stdout.isatty()
+    if live:
+        sys.stdout.write(f"  {GRAY}$ CLAUDE_CONFIG_DIR={env['CLAUDE_CONFIG_DIR']} {' '.join(cmd)}{RESET}")
+        sys.stdout.flush()
     try:
         r=subprocess.run(cmd,capture_output=True,text=True,env=env,timeout=60)
         out=r.stdout
         s=re.search(r"Current session:\s+(\d+)%", out)
         w=re.search(r"Current week.*?:\s+(\d+)%", out)
         if r.returncode!=0 or not s or not w:
-            return {"session":0,"week":0,"active":False}
-        return {"session":int(s.group(1)),"week":int(w.group(1)),"active":True}
+            result={"session":0,"week":0,"active":False}
+        else:
+            result={"session":int(s.group(1)),"week":int(w.group(1)),"active":True}
     except Exception:
-        return {"session":0,"week":0,"active":False}
+        result={"session":0,"week":0,"active":False}
+    if live:
+        sys.stdout.write("\r\033[2K")
+    return result
 
 def color(v):
     if v>=80: return RED
@@ -402,21 +409,22 @@ def _pick_best():
         print("No accounts")
         return None
 
-    print("Checking account sessions and usage...\n")
+    print("Checking account sessions and usage...")
     rows=[]
     expired=[]
     for a in accounts:
         u=get_usage(a["name"])
         if not u["active"]:
-            print(f"  {RED}✗ {a['name']:12} session expired{RESET}\n")
+            print(f"  {RED}✗ {a['name']:12} session expired{RESET}")
             expired.append(a["name"])
             continue
         sc=u["session"]*0.7+u["week"]*0.3
         rows.append((a["name"],u,sc))
         c=color(u["session"])
-        print(f"  {GREEN}✓{RESET} {a['name']:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}\n")
+        print(f"  {GREEN}✓{RESET} {a['name']:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}")
 
     rows.sort(key=lambda r: r[2])
+    print()
 
     if rows:
         print(f"Recommended: {rows[0][0]} — lowest score {rows[0][2]:.1f} among active sessions (70% session + 30% weekly usage)\n")

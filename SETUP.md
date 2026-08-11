@@ -76,20 +76,18 @@ $ claudes launch alice
 | `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
 
 `usage`, `best`, and `switch-best` check each account for real by running
-`claude -p /usage` under its config — the exact command is printed as it
-runs, so you can see what's actually being checked. Claude Code sessions
-can expire and need a fresh login; a failed/non-zero result is treated as
-an expired session (not 0% usage) rather than silently making a
-logged-out account look like the best choice. `best`/`switch-best` then
-show an arrow-key menu, e.g.:
+`claude -p /usage` under its config. Each account gets one line: the
+command flashes briefly while it runs, then is replaced in place by the
+result — so checking several accounts doesn't scroll the log, but you can
+still see what's actually being run. Claude Code sessions can expire and
+need a fresh login; a failed/non-zero result is treated as an expired
+session (not 0% usage) rather than silently making a logged-out account
+look like the best choice. `best`/`switch-best` then show an arrow-key
+menu, e.g.:
 
 ```
 Checking account sessions and usage...
-
-  $ CLAUDE_CONFIG_DIR=/Users/you/.claudes/profiles/alice claude -p /usage
   ✓ alice        session  12%  week   5%  score   9.9
-
-  $ CLAUDE_CONFIG_DIR=/Users/you/.claudes/profiles/carol claude -p /usage
   ✗ carol        session expired
 
 Recommended: alice — lowest score 9.9 among active sessions (70% session + 30% weekly usage)
