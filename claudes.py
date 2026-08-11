@@ -12,6 +12,8 @@ SHARED = BASE / "shared"
 
 GREEN="\033[92m"; YELLOW="\033[93m"; RED="\033[91m"; GRAY="\033[90m"; RESET="\033[0m"
 
+RESERVED = {"install","add","remove","rename","list","usage","migrate"}
+
 def ensure():
     BASE.mkdir(exist_ok=True)
     PROFILES.mkdir(exist_ok=True)
@@ -221,6 +223,10 @@ def install():
     print("Done")
 
 def add(name):
+    if not name.strip():
+        print(f"{RED}Account name cannot be empty{RESET} — pick a name."); return
+    if name in RESERVED:
+        print(f"{RED}'{name}' is a reserved command name{RESET} — pick something else."); return
     d=load()
     if any(a["name"]==name for a in d["accounts"]):
         print("Already exists"); return
@@ -272,6 +278,10 @@ def remove(name, force=False):
     print("Removed", name)
 
 def rename(old, new):
+    if not new.strip():
+        print(f"{RED}Account name cannot be empty{RESET} — pick a name."); return
+    if new in RESERVED:
+        print(f"{RED}'{new}' is a reserved command name{RESET} — pick something else."); return
     d=load()
     if not any(a["name"]==old for a in d["accounts"]):
         print("Not found"); return

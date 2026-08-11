@@ -93,6 +93,12 @@ that account again does **not** free the directory (only its name
 changes); `claudes remove` on it is the only way to actually free the
 old name up for reuse.
 
+Account names also can't be empty or collide with a built-in command
+(`install`, `add`, `remove`, `rename`, `list`, `usage`, `migrate`) —
+`add`/`rename` refuse those with an error, since `claudes <name>` would
+never be able to tell the two apart (and an empty name would silently
+point the account at the shared profile directory itself).
+
 ## Commands
 
 | Command                  | Description                                              |
