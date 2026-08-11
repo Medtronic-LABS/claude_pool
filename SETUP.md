@@ -73,6 +73,54 @@ $ claudes launch alice
 | `claudes usage`            | Show session/weekly usage % for every account              |
 | `claudes best`             | Print the name of the least-used account                   |
 | `claudes switch-best`      | Launch `claude` using the least-used account                |
+| `claudes migrate`          | Link accounts into the shared session layer and import historical sessions |
+
+## Shared session context
+
+Every profile normally has its own `projects/`, `plugins/`, `cache/`,
+`history.jsonl`, and `settings.json` — meaning if you started a project
+under `alice` and later switched to `bob`, `bob` wouldn't know that
+project or session existed.
+
+`claude_pool` avoids that by keeping one copy of those files in
+`<CLAUDES_BASE>/shared/`, and replacing the per-profile copies with
+symlinks into it. Every account reads and writes the same project
+history, shell history, plugin state, cache, and settings — so switching
+accounts to work around a usage limit doesn't cost you your context.
+`claudes launch`/`switch` also updates each project's "last session" in
+the account's `.claude.json` before launching, so resuming a project
+(`claude -c` / picking it from the project list) picks up the most recent
+session regardless of which account you resume it from.
+
+New accounts get wired into the shared layer automatically —
+`claudes add <name>` calls this as part of creating the profile, so
+there's usually nothing extra to do.
+
+### Importing existing sessions
+
+If you already had accounts set up before this feature existed (or ran
+`claude` directly under `~/.claude` before adopting `claude_pool`), run:
+
+```bash
+claudes migrate
+```
+
+This will, for every registered account:
+
+1. Skip any profile with an active `claude` process (finish or exit that
+   session first, then re-run `claudes migrate`).
+2. Move each profile's existing `projects/`, `plugins/`, `cache/`,
+   `history.jsonl`, and `settings.json` into `<CLAUDES_BASE>/shared/`
+   (merging rather than overwriting anything already shared), then
+   replace them with symlinks.
+3. Import historical session/history data from stale locations — old
+   per-account directories directly under `~/.claudes/`, and `~/.claude`
+   (Claude Code's default config dir, including any pre-`claude_pool`
+   sessions) — without deleting the originals.
+
+It prints how many session files and history entries were imported from
+each source. It's safe to re-run; already-shared or already-imported data
+is skipped rather than duplicated.
 
 ## Config
 
