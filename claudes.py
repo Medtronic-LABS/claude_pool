@@ -420,11 +420,13 @@ def get_usage(name):
         out=r.stdout
         s=re.search(r"Current session:\s+(\d+)%", out)
         w=re.search(r"Current week.*?:\s+(\d+)%", out)
+        wr=re.search(r"Current week.*?resets\s+([^\n]+)", out)
         if r.returncode!=0:
             return {"session":0,"week":0,"active":False,"reason":"expired"}
         if not s or not w:
             return {"session":0,"week":0,"active":False,"reason":"error"}
-        return {"session":int(s.group(1)),"week":int(w.group(1)),"active":True}
+        return {"session":int(s.group(1)),"week":int(w.group(1)),"week_resets":wr.group(1).strip() if wr else "",
+                "active":True}
     except subprocess.TimeoutExpired:
         return {"session":0,"week":0,"active":False,"reason":"timeout"}
     except Exception:
@@ -461,14 +463,14 @@ def usage():
             else: failed.append(name)
             continue
         score=u["session"]*0.7+u["week"]*0.3
-        rows.append((name,u["session"],u["week"],score))
+        rows.append((name,u["session"],u["week"],score,u.get("week_resets","")))
     rows.sort(key=lambda x:x[3])
     print("\nCLAUDE ACCOUNT USAGE\n")
-    print(f"{'Account':12} {'Session':10} {'Weekly':10} Score")
-    print("-"*45)
-    for n,s,w,sc in rows:
+    print(f"{'Account':12} {'Session':10} {'Weekly':10} {'Score':7} Week resets")
+    print("-"*70)
+    for n,s,w,sc,wr in rows:
         c=color(s)
-        print(f"{n:12} {c}{s:>3}%{RESET}       {c}{w:>3}%{RESET}      {sc:.1f}")
+        print(f"{n:12} {c}{s:>3}%{RESET}       {c}{w:>3}%{RESET}      {sc:<7.1f} {wr}")
     for n in expired:
         print(f"{n:12} {RED}{'expired':>7}{RESET}    {RED}{'expired':>7}{RESET}    -")
     for n in failed:
@@ -502,11 +504,11 @@ def _interactive_menu(rows, expired):
     row=0
 
     def plain_row(name,u,sc):
-        return f"{name:12} session {u['session']:>3}%  week {u['week']:>3}%  score {sc:5.1f}"
+        return f"{name:12} session {u['session']:>3}%  week {u['week']:>3}%  score {sc:5.1f}  resets {u.get('week_resets','')}"
 
     def colored_row(name,u,sc):
         c=color(u["session"])
-        return f"{name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}"
+        return f"{name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}  resets {u.get('week_resets','')}"
 
     def plain_login(name):
         return f"{name:12} (Enter to log in)"
@@ -642,7 +644,7 @@ def _choose_account():
         sc=u["session"]*0.7+u["week"]*0.3
         rows.append((name,u,sc))
         c=color(u["session"])
-        print(f"  {GREEN}✓{RESET} {name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}")
+        print(f"  {GREEN}✓{RESET} {name:12} session {c}{u['session']:>3}%{RESET}  week {c}{u['week']:>3}%{RESET}  score {sc:5.1f}  resets {u.get('week_resets','')}")
 
     rows.sort(key=lambda r: r[2])
     print()
