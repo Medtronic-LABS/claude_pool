@@ -424,7 +424,13 @@ def get_usage(name):
         if r.returncode!=0:
             return {"session":0,"week":0,"active":False,"reason":"expired"}
         if not s or not w:
-            return {"session":0,"week":0,"active":False,"reason":"error"}
+            # `claude -p /usage` exits 0 even when the session has no working
+            # credentials — it silently falls back to a generic zero-cost
+            # stub instead of real percentages. That's indistinguishable from
+            # a dead session, so treat it the same as an expired one (login
+            # required) rather than a transient "error" the picker can't
+            # recover from.
+            return {"session":0,"week":0,"active":False,"reason":"expired"}
         return {"session":int(s.group(1)),"week":int(w.group(1)),"week_resets":wr.group(1).strip() if wr else "",
                 "active":True}
     except subprocess.TimeoutExpired:
