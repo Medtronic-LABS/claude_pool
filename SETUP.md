@@ -2,9 +2,10 @@
 
 `claude_pool` lets you juggle several Claude Code accounts on one machine. Each
 account gets its own isolated config directory under `profiles/<name>/`, listed
-in `accounts.json`. The `claudes` command launches `claude` with
-`CLAUDE_CONFIG_DIR` pointed at the right profile, and can report each
-account's session/weekly usage so you can pick the least-used one.
+in `accounts.json`. Running `claudes` with no arguments checks every account's
+session/weekly usage live and shows an arrow-key menu to pick which one to
+launch — it launches `claude` with `CLAUDE_CONFIG_DIR` pointed at the chosen
+profile.
 
 ## Prerequisites
 
@@ -22,8 +23,9 @@ This installs any packages listed in `requirements.txt` (none yet — the
 tooling is stdlib-only today), then runs `claudes.py install` to create `~/.claudes` (profiles dir +
 `accounts.json`) and put a `claudes` command on PATH. If `/usr/local/bin`
 isn't writable (no sudo), the script automatically falls back to
-`~/bin/claudes` and adds it to PATH in your shell rc file — restart your
-terminal (or `source` the rc file) afterwards.
+`~/bin/claudes` and adds it to PATH in your shell rc file — then, if run
+from a real terminal, relaunches your shell so `claudes` is ready to use
+right away, no manual restart needed.
 
 You can install manually instead, if you prefer:
 
@@ -43,10 +45,11 @@ claudes list
 claudes add <name>
 ```
 
-This creates `profiles/<name>/` and then automatically launches `claude`
-with `CLAUDE_CONFIG_DIR` pointed at that profile, so you can complete the
-login flow right away — its credentials/session land in that profile
-directory.
+This creates `profiles/<name>/` and then immediately runs `claude auth
+login` under that profile — the login link gets copied to your clipboard
+(see [Logging in](#logging-in) below) rather than opening a browser tab, so
+you can paste it into whichever browser you want. Its credentials/session
+land in that profile directory.
 
 ### Example
 
@@ -55,25 +58,129 @@ Adding an account named `alice` after `./setup.sh` has already been run:
 ```bash
 $ claudes add alice
 Added alice
-Launching claude to log in...
-# complete the normal Claude Code login flow, then exit
+Login link copied to clipboard — paste it into any browser to sign in:
+https://claude.ai/... (your actual login URL)
+# open that link in a browser, complete login
 
 $ claudes list
 alice
 
-$ claudes launch alice
+$ claudes alice
 ```
+
+(`claudes alice` launches that account directly. `claudes` with no
+arguments works too — with only one account it's the same thing, just
+after a quick usage check.)
+
+## Removing or renaming an account
+
+```bash
+claudes remove alice
+claudes rename alice bob
+```
+
+`remove` deletes both the `accounts.json` entry and the account's profile
+directory. It refuses if Claude is currently running under that account,
+and otherwise asks for confirmation — pass `--force` to skip the prompt
+(e.g. from a script). If the current account is removed, the next bare
+`claudes` re-checks everything from scratch.
+
+`rename` only changes the name used to refer to the account; the profile
+directory, credentials, and sessions are untouched. This means the old
+name can't be reused via `claudes add` afterward — `add` will refuse
+since the renamed account still owns that profile directory. Renaming
+that account again does **not** free the directory (only its name
+changes); `claudes remove` on it is the only way to actually free the
+old name up for reuse.
+
+Account names also can't be empty or collide with a built-in command
+(`install`, `add`, `remove`, `rename`, `list`, `usage`, `migrate`) —
+`add`/`rename` refuse those with an error, since `claudes <name>` would
+never be able to tell the two apart (and an empty name would silently
+point the account at the shared profile directory itself).
 
 ## Commands
 
 | Command                  | Description                                              |
 |---------------------------|-----------------------------------------------------------|
+| `claudes remove <name>`    | Delete an account's entry and its profile directory (asks for confirmation unless `--force`) |
+| `claudes rename <old> <new>` | Rename an account in place — no profile directory or credentials are touched |
+| `claudes`                  | Check every account's session/usage live, then pick one to launch |
+| `claudes <name>`           | Launch that account directly — skips the usage check entirely |
 | `claudes list`             | List configured accounts                                  |
-| `claudes launch <name>`    | Launch `claude` using that account's config (alias: `switch`) |
-| `claudes usage`            | Show session/weekly usage % for every account              |
-| `claudes best`             | Print the name of the least-used account                   |
-| `claudes switch-best`      | Launch `claude` using the least-used account                |
+| `claudes usage`            | Show session/weekly usage % for every account with an active session |
 | `claudes migrate`          | Link accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
+
+`usage` and bare `claudes` check every account for real by running
+`claude -p /usage` under its config — all accounts are checked
+concurrently (one thread per account), so the wait is bounded by the
+slowest single account's check rather than the sum of all of them, then
+every result prints at once, one line per account. Claude Code sessions
+can expire and need a fresh login; a returncode-confirmed failure is
+treated as an expired session (not 0% usage) rather than silently making a
+logged-out account look like the best choice. A check that merely fails to
+complete — timeout, network blip, missing config, or output the CLI
+returned successfully but that doesn't parse — is reported separately as
+"check failed" and excluded from the login-required menu entirely, so a
+flaky check never triggers `claude auth login` on an account that might
+still be perfectly valid. `claudes` then shows an arrow-key menu, e.g.:
+
+```
+Checking 2 accounts...
+  ✓ alice        session  12%  week   5%  score   9.9
+  ✗ carol        session expired
+
+Recommended: alice — lowest score 9.9 among active sessions (70% session + 30% weekly usage)
+
+Select an account (↑/↓ move, ←/→ switch, Enter choose, q cancel):
+
+Available:                 Login required:
+┌─────────────────────┐    ┌─────────────────────┐
+│ alice  12%  5%  9.9  │    │ carol (Enter to log in) │  <- selected: bordered + highlighted
+└─────────────────────┘    └─────────────────────┘
+```
+
+"Available" and "Login required" render side by side when both have
+entries (otherwise whichever one exists renders alone, without the
+←/→ hint). Use ↑/↓ to move within a column and ←/→ to switch columns; the
+selected account is boxed and highlighted (the recommended one starts
+pre-selected, so pressing Enter immediately accepts it), then `claudes`
+launches `claude` with the chosen account. Accounts under "Login
+required" are excluded from the usage comparison; choosing one logs you
+in (see below) instead of launching a session, then everything is
+re-checked and the menu reappears (now including that account, if login
+succeeded). Press `q` to cancel without picking anything. When stdin
+isn't a terminal (cron jobs, scripts, pipes), the menu is skipped and the
+recommended account launches automatically.
+
+Already know which account you want? `claudes <name>` skips all of the
+above — no usage check, no menu — and launches `claude` under that
+account's config immediately.
+
+## Logging in
+
+Whenever `claude auth login` needs to run — from `claudes add <name>` for a
+brand-new account, or from picking a "Login required" entry in the
+menu — `claudes` runs it directly and streams its output live. As soon as
+the login URL appears, it's copied to your clipboard (via `pbcopy`) and
+printed, instead of letting a browser tab open automatically:
+
+```
+Login link copied to clipboard — paste it into any browser to sign in:
+https://claude.ai/oauth/authorize?...
+```
+
+Paste that link into whichever browser you want (useful if you're signed
+into different Google/Okta/etc. accounts in different browsers) and
+complete the login there; `claudes` keeps waiting and prints the result
+once it's done. Browser auto-open is suppressed on a best-effort basis
+only (`BROWSER=true` in the subprocess's environment) — if `claude` opens
+one directly regardless, the copied link is still there as the reliable
+fallback.
+
+Changed your mind, or picked the wrong account? Press **Esc twice** while
+it's waiting to cancel the login and go straight back to the account
+menu — no need to wait it out or Ctrl-C the whole `claudes` process.
 
 ## Shared session context
 
@@ -87,10 +194,10 @@ project or session existed.
 symlinks into it. Every account reads and writes the same project
 history, shell history, plugin state, cache, and settings — so switching
 accounts to work around a usage limit doesn't cost you your context.
-`claudes launch`/`switch` also updates each project's "last session" in
-the account's `.claude.json` before launching, so resuming a project
+Launching an account via `claudes` also updates each project's "last
+session" in the account's `.claude.json` first, so resuming a project
 (`claude -c` / picking it from the project list) picks up the most recent
-session regardless of which account you resume it from.
+session regardless of which account you launched.
 
 New accounts get wired into the shared layer automatically —
 `claudes add <name>` calls this as part of creating the profile, so
@@ -145,5 +252,9 @@ export CLAUDES_BASE=/Users/amresh/labs/claude_pool
 
 **`claudes: command not found`** — `/usr/local/bin` usually requires sudo to
 write to. Re-run `./setup.sh`; it detects this and falls back to
-`~/bin/claudes` plus a PATH entry in your shell rc file automatically. Just
-make sure to restart your terminal (or `source` the rc file) afterwards.
+`~/bin/claudes` plus a PATH entry in your shell rc file automatically. When
+run from a real terminal, it then relaunches your shell (`exec "$SHELL"
+-li`) so `claudes` is ready to use immediately — no restart needed. If
+`setup.sh` was run non-interactively (piped stdin, CI, etc.), it instead
+prints `Restart your terminal (or run: source <rc file>)`; do that manually
+in that case.

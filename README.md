@@ -4,19 +4,19 @@ A small CLI for juggling multiple Claude Code accounts on one machine.
 
 Claude Code's usage limits are per-account. If you have access to more than
 one account, `claude_pool` lets you keep each one in its own isolated config
-directory and switch between them with a single command — including picking
-whichever account currently has the most headroom left.
+directory and pick which one to use with a single command — with live usage
+info to help you choose.
 
 ## How it works
 
 - Each account is a named entry in `accounts.json`, pointing at its own
   config directory under `profiles/<name>/`.
+- Running `claudes` with no arguments checks every account's session and
+  usage live, then shows an arrow-key menu so you pick which one to launch
+  — it recommends the least-used account but the choice is yours.
 - The `claudes` CLI (`claudes.py`) launches `claude` with `CLAUDE_CONFIG_DIR`
   set to that account's profile, so credentials, sessions, and settings
   never mix between accounts.
-- It can also poll each account's `/usage` output and report session/weekly
-  usage %, so you can jump to (or auto-launch) whichever account is least
-  used.
 - Project history, plugins, cache, shell history, and settings are shared
   across every account via a `shared/` layer (symlinked into each profile),
   so switching accounts doesn't mean losing track of what you were doing —
@@ -29,20 +29,45 @@ whichever account currently has the most headroom left.
 | Command                 | Description                                                    |
 |--------------------------|------------------------------------------------------------------|
 | `claudes install`        | Set up `~/.claudes` and put the `claudes` command on PATH        |
-| `claudes add <name>`     | Register a new account, create its profile directory, and launch `claude` to log in |
+| `claudes add <name>`     | Register a new account, create its profile directory, and start login |
+| `claudes remove <name>`  | Delete an account's entry and its profile directory (asks for confirmation unless `--force`) |
+| `claudes rename <old> <new>` | Rename an account in place — no profile directory or credentials are touched |
+| `claudes`                | Check every account's session/usage live, then pick one to launch |
+| `claudes <name>`         | Launch that account directly — skips the usage check entirely     |
 | `claudes list`           | List configured accounts                                         |
-| `claudes launch <name>`  | Launch `claude` using that account's config (alias: `switch`)    |
-| `claudes usage`          | Show session/weekly usage % for every account                    |
-| `claudes best`           | Print the name of the least-used account                         |
-| `claudes switch-best`    | Launch `claude` using the least-used account                     |
+| `claudes usage`          | Show session/weekly usage % for every account with an active session |
 | `claudes migrate`        | Link existing accounts (and the default `~/.claude` config) into the shared session layer, importing historical data |
+
+Running bare `claudes` checks every account by actually running
+`claude -p /usage` under its config — all accounts are checked concurrently,
+so the wait is bounded by the slowest single account's check rather than
+the sum of all of them — and distinguishes a returncode-confirmed "not
+logged in" result (session expired, needs a fresh login) from a check that
+simply failed to complete (timeout, network blip, unparseable output) and
+should just be retried rather than triggering a login. It then shows an
+arrow-key menu (↑/↓ move, ←/→ switch column, Enter choose, q cancel) with
+active accounts under "Available" and expired ones under "Login required"
+— side by side when both exist, best score pre-selected; accounts whose
+check merely failed are reported separately and never offered in the menu,
+so nothing but a genuinely expired session can trigger a login prompt.
+Picking a login-required account runs `claude auth login` directly and
+copies the login link to your clipboard instead of opening a browser tab,
+so you can paste it into whichever browser you want (press Esc twice
+while it's waiting to cancel and pick a different account); everything is
+then re-checked and the menu
+shown again. When stdin isn't a terminal (cron, scripts, pipes), the menu
+is skipped and the recommended account launches automatically.
+
+Already know which account you want? `claudes <name>` launches it
+directly — no usage check, no menu, just `claude` starting up under that
+account's config immediately.
 
 ## Quick start
 
 ```bash
 ./setup.sh
 claudes add <name>
-claudes list
+claudes
 ```
 
 See [SETUP.md](SETUP.md) for full installation steps, prerequisites, and

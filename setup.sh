@@ -26,6 +26,9 @@ fi
 echo "Running installer: python3 $SCRIPT_DIR/claudes.py install"
 python3 "$SCRIPT_DIR/claudes.py" install
 
+NEEDS_RELAUNCH=0
+RC_FILE=""
+
 if command -v claudes >/dev/null 2>&1; then
     echo
     echo "'claudes' is on PATH: $(command -v claudes)"
@@ -53,8 +56,7 @@ else
         echo "Added PATH entry to $RC_FILE"
     fi
 
-    echo
-    echo "Restart your terminal (or run: source $RC_FILE), then 'claudes' will be available."
+    NEEDS_RELAUNCH=1
 fi
 
 echo
@@ -62,3 +64,14 @@ echo "Base directory : $BASE_DIR"
 echo "Next steps:"
 echo "    claudes list"
 echo "    claudes add <name>"
+
+if [ "$NEEDS_RELAUNCH" = "1" ]; then
+    echo
+    if [ -t 0 ]; then
+        echo "Relaunching your shell so 'claudes' is ready to use..."
+        echo "(any per-terminal state from before setup, like cd or an activated venv, resets - same as opening a new tab)"
+        exec "$SHELL" -li
+    else
+        echo "Restart your terminal (or run: source $RC_FILE), then 'claudes' will be available."
+    fi
+fi
